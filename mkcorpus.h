@@ -18,7 +18,6 @@ extern "C"
     c_xqilla prepare(char const *stylesheet, Language language);
     void setname(c_xqilla xq, char const *name, char const *value);
     char const *run(c_xqilla xq, char const *xmlfile, char const *suffix);
-    int match(c_xqilla xq, char const *xmlfile);
     int xq_error(c_xqilla xq);
 
 #ifdef __cplusplus

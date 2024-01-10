@@ -101,45 +101,6 @@ extern "C"
         return xq->text.c_str();
     }
 
-    int match(c_xqilla xq, char const *xmlfile)
-    {
-        xq->error = false;
-        int n = 0;
-
-        /*
-        xercesc::MemBufInputSource source((const unsigned char *)xmldata,
-                                          strlen(xmldata), UTF8("TEST"));
-        xercesc::BinInputStream stream = source.makeStream ()
-        */
-
-        try
-        {
-            // Node::Ptr item = context->parseDocument(source);
-            // Sequence seq = Sequence(item);
-            Sequence seq = xq->context->resolveDocument(X(xmlfile));
-            if (!seq.isEmpty() && seq.first()->isNode())
-            {
-                xq->context->setContextItem(seq.first());
-                xq->context->setContextPosition(1);
-                xq->context->setContextSize(1);
-            }
-        }
-        catch (XQException &xe)
-        {
-            xe.printDebug(X("match(xmlfile)"));
-            xq->error = true;
-            return n;
-        }
-
-        Result result = xq->query->execute(xq->context);
-
-        Item::Ptr item;
-        while ((item = result->next(xq->context)) != NULL)
-            n++;
-
-        return n;
-    }
-
     int xq_error(c_xqilla xq)
     {
         return xq->error ? 1 : 0;

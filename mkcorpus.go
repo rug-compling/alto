@@ -27,14 +27,20 @@ import (
 type Item struct {
 	name     string
 	data     string
+	match    string
 	filtered bool // als het eerste XPath-filter al is toegepast bij inlezen vanuit DACT, dan kan het eerste filter alles doorlaten
 	original bool // als dit een origineel XML-bestand is, dan hoeft er geen tijdelijk bestand gemaakt te worden voor XQilla
 }
+
+const (
+	DEVIDER = "[[*gyeve!"
+)
 
 var (
 	chDone      = make(chan bool)
 	compactSeen = make(map[string]bool)
 	tempdir     = os.TempDir()
+	cDEVIDER    = C.CString(DEVIDER)
 
 	x = util.CheckErr
 )
@@ -237,9 +243,10 @@ func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
 		if item.original {
 			// oorspronkelijk, onveranderd xml-bestand
 			cs := C.CString(item.name)
-			n := C.match(xq, cs)
+			output := C.run(xq, cs, cDEVIDER)
 			C.free(unsafe.Pointer(cs))
-			if n > 0 {
+			item.match = C.GoString(output)
+			if len(item.match) > 0 {
 				chOut <- item
 			}
 			continue
@@ -254,10 +261,11 @@ func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
 		filename := fp.Name()
 		x(fp.Close())
 		cs := C.CString(filename)
-		n := C.match(xq, cs)
+		output := C.run(xq, cs, cDEVIDER)
 		C.free(unsafe.Pointer(cs))
 		os.Remove(filename)
-		if n > 0 {
+		item.match = C.GoString(output)
+		if len(item.match) > 0 {
 			chOut <- item
 		}
 	}
@@ -381,12 +389,30 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 	} else {
 		docs, err := db.Query(filter)
 		x(err)
+		name := ""
+		content := ""
+		match := ""
 		j := 0
 		for docs.Next() {
-			j++
-			name := docs.Name()
+			// TODO
+			// Hier ga ik ervan uit dat als er meerdere matches per xml-bestand zijn
+			// dat die dan allemaal achter elkaar zitten.
+			// Is dit zo?
+			newname := docs.Name()
+			if name != newname {
+				j++
+				if content != "" {
+					chOut <- Item{name: name, data: content, match: match, filtered: true}
+				}
+				name = newname
+				match = ""
+			}
+			content = docs.Content()
+			match += docs.Match() + DEVIDER
 			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j, name)
-			chOut <- Item{name: name, data: docs.Content(), filtered: true}
+		}
+		if content != "" {
+			chOut <- Item{name: name, data: content, match: match, filtered: true}
 		}
 	}
 }
