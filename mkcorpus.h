@@ -6,7 +6,7 @@ extern "C"
 {
 #endif
 
-    typedef struct c_xqilla_t *c_xqilla;
+    typedef struct c_xqilla_result_t *c_xqilla_result;
 
     typedef enum
     {
@@ -15,10 +15,11 @@ extern "C"
         langXSLT
     } Language;
 
-    c_xqilla prepare(char const *stylesheet, Language language);
-    void setname(c_xqilla xq, char const *name, char const *value);
-    char const *run(c_xqilla xq, char const *xmlfile, char const *suffix);
-    int xq_error(c_xqilla xq);
+    c_xqilla_result xq_call(char const *xmlfile, char const *query, Language language, char const *suffix, int nvars,
+                            char const **vars);
+    int xq_error(c_xqilla_result xq);
+    char const *xq_text(c_xqilla_result xq);
+    void xq_free(c_xqilla_result xq);
 
 #ifdef __cplusplus
 }

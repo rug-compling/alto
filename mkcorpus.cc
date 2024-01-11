@@ -9,20 +9,33 @@ extern "C"
 {
     XQilla xqilla;
 
-    struct c_xqilla_t
+    struct c_xqilla_result_t
     {
-        DynamicContext *context;
-        XQQuery *query;
         std::string text;
-        bool error;
+        int error;
     };
 
-    c_xqilla prepare(char const *stylesheet, Language language)
+    void xq_free(c_xqilla_result xq)
     {
+        delete xq;
+    }
 
-        c_xqilla xq;
-        xq = new c_xqilla_t;
-        xq->error = false;
+    int xq_error(c_xqilla_result xq)
+    {
+        return xq->error;
+    }
+
+    char const *xq_text(c_xqilla_result xq)
+    {
+        return xq->text.c_str();
+    }
+
+    c_xqilla_result xq_call(char const *xmlfile, char const *query, Language language, char const *suffix, int nvars,
+                            char const **vars)
+    {
+        c_xqilla_result xqr = new c_xqilla_result_t;
+        xqr->text = "";
+        xqr->error = 0;
 
         XQilla::Language lang;
         switch (language)
@@ -40,69 +53,52 @@ extern "C"
 
         try
         {
-            xq->context = xqilla.createContext(lang);
-            xq->query = xqilla.parse(X(stylesheet), xq->context);
-        }
-        catch (XQException &xe)
-        {
-            xe.printDebug(X("prepare(stylesheet, language)"));
-            xq->error = true;
-        }
 
-        return xq;
-    }
+            // AutoDelete<DynamicContext> context(xqilla.createContext(lang));
+            // AutoDelete<XQQuery> qq(xqilla.parse(X(query), context));
+            DynamicContext *context = xqilla.createContext(lang);
+            XQQuery *qq = xqilla.parse(X(query), context);
 
-    void setname(c_xqilla xq, char const *name, char const *value)
-    {
-        Item::Ptr val = xq->context->getItemFactory()->createUntypedAtomic(X(value), xq->context);
-        xq->context->setExternalVariable(X(name), val);
-    }
+            for (int i = 0; i < nvars; i++)
+            {
+                Item::Ptr val = context->getItemFactory()->createUntypedAtomic(X(vars[2 * i + 1]), context);
+                context->setExternalVariable(X(vars[2 * i]), val);
+            }
 
-    char const *run(c_xqilla xq, char const *xmlfile, char const *suffix)
-    {
-        xq->error = false;
-
-        /*
-        xercesc::MemBufInputSource source((const unsigned char *)xmldata,
-                                          strlen(xmldata), UTF8("TEST"));
-        xercesc::BinInputStream stream = source.makeStream ()
-        */
-
-        try
-        {
-            // Node::Ptr item = context->parseDocument(source);
-            // Sequence seq = Sequence(item);
-            Sequence seq = xq->context->resolveDocument(X(xmlfile));
+            Sequence seq = context->resolveDocument(X(xmlfile));
             if (!seq.isEmpty() && seq.first()->isNode())
             {
-                xq->context->setContextItem(seq.first());
-                xq->context->setContextPosition(1);
-                xq->context->setContextSize(1);
+                context->setContextItem(seq.first());
+                context->setContextPosition(1);
+                context->setContextSize(1);
+            }
+
+            Result result = qq->execute(context);
+
+            Item::Ptr item;
+            while ((item = result->next(context)) != NULL)
+            {
+                xqr->text += UTF8(item->asString(context));
+                xqr->text += suffix;
             }
         }
         catch (XQException &xe)
         {
-            xe.printDebug(X("run(xmlfile)"));
-            xq->error = true;
-            return "";
+            xe.printDebug(X("xq_call"));
+            xqr->error = 1;
         }
 
-        Result result = xq->query->execute(xq->context);
+        /*
+            if (qq != NULL)
+            {
+                delete qq;
+            }
+            if (context != NULL)
+            {
+                delete context;
+            }
+        */
 
-        xq->text = "";
-
-        Item::Ptr item;
-        while ((item = result->next(xq->context)) != NULL)
-        {
-            xq->text += UTF8(item->asString(xq->context));
-            xq->text += suffix;
-        }
-
-        return xq->text.c_str();
-    }
-
-    int xq_error(c_xqilla xq)
-    {
-        return xq->error ? 1 : 0;
+        return xqr;
     }
 }
