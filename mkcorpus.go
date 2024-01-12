@@ -25,11 +25,12 @@ import (
 )
 
 type Item struct {
+	arch        string // TODO
 	name        string
 	oriname     string
 	data        string
-	match       string
-	filtered    bool // als het eerste XPath-filter al is toegepast bij inlezen vanuit DACT, dan kan het eerste filter alles doorlaten
+	match       []string
+	skipfilter  bool // als het eerste XPath-filter al is toegepast bij inlezen vanuit DACT, dan kan het eerste filter alles doorlaten
 	original    bool // als dit een origineel XML-bestand is, dan hoeft er geen tijdelijk bestand gemaakt te worden voor XQilla
 	transformed bool
 }
@@ -241,9 +242,9 @@ func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
 	vars := make([]*C.char, 1)
 
 	for item := range chIn {
-		if item.filtered {
+		if item.skipfilter {
 			// eerste filter is toegepast bij lezen vanuit dbxml-bestand
-			item.filtered = false
+			item.skipfilter = false
 			chOut <- item
 			continue
 		}
@@ -270,12 +271,17 @@ func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
 		}
 
 		if C.xq_error(result) == 0 {
-			if len(C.GoString(C.xq_text(result))) > 0 {
+			item.match = make([]string, 0)
+			for _, m := range strings.Split(C.GoString(C.xq_text(result)), DEVIDER) {
+				if len(m) > 0 {
+					item.match = append(item.match, m)
+				}
+			}
+			if len(item.match) > 0 {
 				chOut <- item
 			}
 		}
 		C.xq_free(result)
-
 	}
 	close(chOut)
 }
@@ -292,8 +298,7 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, s
 	for item := range chIn {
 		vars[1] = C.CString(item.oriname)
 
-		item.filtered = false
-		item.match = ""
+		item.match = make([]string, 0)
 		if !item.transformed {
 			item.transformed = true
 			item.name += ".t"
@@ -404,6 +409,8 @@ func writeTxt(chIn <-chan Item, outfile string) {
 
 func writeStdout(chIn <-chan Item) {
 	for item := range chIn {
+		// fmt.Printf("%#v\n", item)
+		// continue
 		_, err := os.Stdout.WriteString(item.data)
 		x(err)
 		if !strings.HasSuffix(item.data, "\n") {
@@ -453,7 +460,12 @@ func readCompact(chOut chan<- Item, infile string, i, n int) {
 		j++
 		name, data := r.Next()
 		fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j, name)
-		chOut <- Item{name: name, oriname: name, data: string(data)}
+		chOut <- Item{
+			name:    name,
+			oriname: name,
+			data:    string(data),
+			match:   make([]string, 0),
+		}
 	}
 }
 
@@ -473,14 +485,19 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 			j++
 			name := docs.Name()
 			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/%d %s        \r", i, n, infile, j, size, name)
-			chOut <- Item{name: name, oriname: name, data: docs.Content()}
+			chOut <- Item{
+				name:    name,
+				oriname: name,
+				data:    docs.Content(),
+				match:   make([]string, 0),
+			}
 		}
 	} else {
 		docs, err := db.Query(filter)
 		x(err)
 		name := ""
 		content := ""
-		match := ""
+		match := make([]string, 0)
 		j := 0
 		for docs.Next() {
 			// TODO
@@ -491,17 +508,29 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 			if name != newname {
 				j++
 				if content != "" {
-					chOut <- Item{name: name, oriname: name, data: content, match: match, filtered: true}
+					chOut <- Item{
+						name:       name,
+						oriname:    name,
+						data:       content,
+						match:      match,
+						skipfilter: true,
+					}
 				}
 				name = newname
-				match = ""
+				content = docs.Content()
+				match = make([]string, 0)
 			}
-			content = docs.Content()
-			match += docs.Match() + DEVIDER
+			match = append(match, docs.Match())
 			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j, name)
 		}
 		if content != "" {
-			chOut <- Item{name: name, oriname: name, data: content, match: match, filtered: true}
+			chOut <- Item{
+				name:       name,
+				oriname:    name,
+				data:       content,
+				match:      match,
+				skipfilter: true,
+			}
 		}
 	}
 }
@@ -519,7 +548,12 @@ func readZip(chOut chan<- Item, infile string, i, n int) {
 		x(err)
 		data, err := io.ReadAll(f)
 		x(err)
-		chOut <- Item{name: name, oriname: name, data: string(data)}
+		chOut <- Item{
+			name:    name,
+			oriname: name,
+			data:    string(data),
+			match:   make([]string, 0),
+		}
 	}
 }
 
@@ -527,7 +561,13 @@ func readXml(chOut chan<- Item, infile string, i, n int) {
 	fmt.Fprintf(os.Stderr, " %d/%d %s        \r", i, n, infile)
 	data, err := os.ReadFile(infile)
 	x(err)
-	chOut <- Item{name: infile, oriname: infile, data: string(data), original: true}
+	chOut <- Item{
+		name:     infile,
+		oriname:  infile,
+		data:     string(data),
+		match:    make([]string, 0),
+		original: true,
+	}
 }
 
 func readDir(chOut chan<- Item, indir, subdir string, i, n int) {
@@ -548,13 +588,21 @@ func readDir(chOut chan<- Item, indir, subdir string, i, n int) {
 			readDir(chOut, indir, name, i, n)
 			continue
 		}
+		// TODO: ook dact, compact, zip
 		if !strings.HasSuffix(name, ".xml") {
 			continue
 		}
 		fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/%d %s        \r", i, n, indir, j+1, size, name)
-		data, err := os.ReadFile(filepath.Join(indir, name))
+		fullname := filepath.Join(indir, name)
+		data, err := os.ReadFile(fullname)
 		x(err)
-		chOut <- Item{name: name, oriname: name, data: string(data)}
+		chOut <- Item{
+			name:     fullname,
+			oriname:  fullname,
+			data:     string(data),
+			match:    make([]string, 0),
+			original: true,
+		}
 	}
 }
 
