@@ -25,7 +25,7 @@ import (
 )
 
 type Item struct {
-	arch        string // TODO
+	arch        string
 	name        string
 	oriname     string
 	data        string
@@ -157,6 +157,7 @@ func main() {
 			var lang C.Language
 			switch act {
 			case "tq":
+				// TODO: hoe zet je de context in xquery?
 				lang = C.langXQUERY
 			case "ts":
 				lang = C.langXSLT
@@ -165,9 +166,9 @@ func main() {
 			go transformStylesheet(chIn, chOut, lang, arg)
 			chIn = chOut
 		} else if act == "tt" {
-			// TODO: als transform toegepast, dan extensie .t toevoegen aan naam xml-bestanden
-			// en original = false
-			// TODO
+			chOut := make(chan Item, 100)
+			go transformTemplate(chIn, chOut, arg)
+			chIn = chOut
 		} else {
 			fmt.Fprintf(os.Stderr, "Unknown action %q\n", action)
 			return
@@ -292,6 +293,8 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, s
 	b, err := os.ReadFile(stylefile)
 	x(err)
 	style := C.CString(string(b))
+
+	// TODO: corpusname
 	vars := make([]*C.char, 2)
 	vars[0] = C.CString("filename")
 
@@ -409,8 +412,6 @@ func writeTxt(chIn <-chan Item, outfile string) {
 
 func writeStdout(chIn <-chan Item) {
 	for item := range chIn {
-		// fmt.Printf("%#v\n", item)
-		// continue
 		_, err := os.Stdout.WriteString(item.data)
 		x(err)
 		if !strings.HasSuffix(item.data, "\n") {
@@ -461,6 +462,7 @@ func readCompact(chOut chan<- Item, infile string, i, n int) {
 		name, data := r.Next()
 		fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j, name)
 		chOut <- Item{
+			arch:    infile + ".data.dz",
 			name:    name,
 			oriname: name,
 			data:    string(data),
@@ -486,6 +488,7 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 			name := docs.Name()
 			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/%d %s        \r", i, n, infile, j, size, name)
 			chOut <- Item{
+				arch:    infile,
 				name:    name,
 				oriname: name,
 				data:    docs.Content(),
@@ -509,6 +512,7 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 				j++
 				if content != "" {
 					chOut <- Item{
+						arch:       infile,
 						name:       name,
 						oriname:    name,
 						data:       content,
@@ -525,6 +529,7 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 		}
 		if content != "" {
 			chOut <- Item{
+				arch:       infile,
 				name:       name,
 				oriname:    name,
 				data:       content,
@@ -549,6 +554,7 @@ func readZip(chOut chan<- Item, infile string, i, n int) {
 		data, err := io.ReadAll(f)
 		x(err)
 		chOut <- Item{
+			arch:    infile,
 			name:    name,
 			oriname: name,
 			data:    string(data),

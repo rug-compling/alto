@@ -1,5 +1,7 @@
 in*
 out*
+*.data.dz
+*.index
 *.xsl
 mkcorpus
 mkcorpus_v6
