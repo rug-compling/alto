@@ -1,4 +1,4 @@
-module mkcorpus
+module alto
 
 go 1.21.1
 

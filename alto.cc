@@ -1,4 +1,4 @@
-#include "mkcorpus.h"
+#include "alto.h"
 // #include <xercesc/framework/MemBufInputSource.hpp>
 #include <string>
 #include <xercesc/framework/MemoryManager.hpp>

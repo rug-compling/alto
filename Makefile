@@ -1,10 +1,10 @@
 
-%_v6 : %.go template.go mkcorpus.cc mkcorpus.h
+%_v6 : %.go template.go alto.cc alto.h
 	envgo -d6 go build -o $@ .
 
-% : %.go template.go mkcorpus.cc mkcorpus.h
+% : %.go template.go alto.cc alto.h
 	envgo -d2 go build .
 
 all: \
-	mkcorpus \
-	mkcorpus_v6
+	alto \
+	alto_v6

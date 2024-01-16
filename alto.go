@@ -1,9 +1,12 @@
 package main
 
+// TODO: alto_v6: xslt3, xpath3
+// TODO: macro's
+
 /*
 #cgo LDFLAGS: -lxqilla -lxerces-c
 #include <stdlib.h>
-#include "mkcorpus.h"
+#include "alto.h"
 */
 import "C"
 
@@ -14,6 +17,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	//"runtime"
 	"strings"
 	"unsafe"
@@ -47,6 +51,8 @@ var (
 	cEMPTY      = C.CString("")
 	cFILENAME   = C.CString("filename")
 
+	verbose = true
+
 	x = util.CheckErr
 )
 
@@ -61,8 +67,8 @@ Actions:
     ud:add : insert Universal Dependencies
     ud:rm  : remove Universal Dependencies
 
+	ff:{filename}   : filter by filename (dact, compact, zip)
     fp:{expression} : filter by XPATH2 {expression}
-    Fp:{expression} : like fp, put marker on matching node
 
     tq:{xqueryfile} : transform with XQuery {xqueryfile}
     ts:{stylefile}  : transform with XSLT2 {stylefile}
@@ -153,21 +159,25 @@ func main() {
 			chOut := make(chan Item, 100)
 			go filterXpath(chIn, chOut, arg)
 			chIn = chOut
-		} else if act == "tq" || act == "ts" {
+		} else if act == "tq" || act == "ts" || act == "Tq" || act == "Ts" {
 			var lang C.Language
 			switch act {
-			case "tq":
+			case "tq", "Tq":
 				// TODO: hoe zet je de context in xquery?
 				lang = C.langXQUERY
-			case "ts":
+			case "ts", "Ts":
 				lang = C.langXSLT
 			}
 			chOut := make(chan Item, 100)
-			go transformStylesheet(chIn, chOut, lang, arg)
+			go transformStylesheet(chIn, chOut, lang, act[0] == 'T', arg)
 			chIn = chOut
 		} else if act == "tt" {
 			chOut := make(chan Item, 100)
 			go transformTemplate(chIn, chOut, arg)
+			chIn = chOut
+		} else if act == "ac" {
+			chOut := make(chan Item, 100)
+			go aggregateCount(chIn, chOut, arg == "relative")
 			chIn = chOut
 		} else {
 			fmt.Fprintf(os.Stderr, "Unknown action %q\n", action)
@@ -186,6 +196,7 @@ func main() {
 	} else if strings.HasSuffix(outfile, ".txt") {
 		go writeTxt(chIn, outfile)
 	} else if outfile == "-" {
+		verbose = false
 		go writeStdout(chIn)
 	} else {
 		go writeDir(chIn, outfile)
@@ -218,7 +229,45 @@ func main() {
 	close(chStart)
 
 	<-chDone
-	fmt.Fprintln(os.Stderr)
+	if verbose {
+		fmt.Fprintln(os.Stderr)
+	}
+}
+
+func aggregateCount(chIn <-chan Item, chOut chan<- Item, relative bool) {
+	var sum int
+	count := make(map[string]int)
+	for item := range chIn {
+		for _, m := range item.match {
+			m = strings.TrimSpace(m)
+			if _, ok := count[m]; !ok {
+				count[m] = 0
+			}
+			count[m]++
+			sum++
+		}
+	}
+	keys := make([]string, 0, len(count))
+	for key := range count {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	lines := make([]string, len(keys))
+	for i, key := range keys {
+		if relative {
+			lines[i] = fmt.Sprintf("%8.4f  %s", float64(count[key])/float64(sum), key)
+		} else {
+			lines[i] = fmt.Sprintf("%8d  %s", count[key], key)
+		}
+	}
+
+	chOut <- Item{
+		name:  "result",
+		data:  strings.Join(lines, "\n"),
+		match: make([]string, 0),
+	}
+
+	close(chOut)
 }
 
 func doUD(chIn <-chan Item, chOut chan<- Item) {
@@ -287,7 +336,7 @@ func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
 	close(chOut)
 }
 
-func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, stylefile string) {
+func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, useMatch bool, stylefile string) {
 	// runtime.LockOSThread()
 
 	b, err := os.ReadFile(stylefile)
@@ -299,46 +348,65 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, s
 	vars[0] = C.CString("filename")
 
 	for item := range chIn {
-		vars[1] = C.CString(item.oriname)
-
-		item.match = make([]string, 0)
-		if !item.transformed {
-			item.transformed = true
-			item.name += ".t"
-		}
-
-		var cs *C.char
-		var filename string
-		if item.original {
-			cs = C.CString(item.oriname)
-		} else {
-			fp, err := os.CreateTemp(tempdir, "mkcTST")
-			x(err)
-			_, err = fp.WriteString(item.data)
-			x(err)
-			filename = fp.Name()
-			x(fp.Close())
-			cs = C.CString(filename)
-		}
-
-		result := C.xq_call(cs, style, lang, cEMPTY, 1, &(vars[0]))
-
-		C.free(unsafe.Pointer(cs))
-		C.free(unsafe.Pointer(vars[1]))
-		if item.original {
-			item.original = false
-		} else {
-			os.Remove(filename)
-		}
-
-		if C.xq_error(result) == 0 {
-			item.data = C.GoString(C.xq_text(result))
-			if len(item.data) > 0 {
-				chOut <- item
+		matchdata := item.match
+		for i := 0; ; i++ {
+			if useMatch {
+				if i >= len(matchdata) {
+					break
+				}
+			} else if i > 0 {
+				break
 			}
-		}
-		C.xq_free(result)
 
+			vars[1] = C.CString(item.oriname)
+
+			if !item.transformed {
+				item.transformed = true
+				item.name += ".t"
+			}
+
+			var cs *C.char
+			var filename string
+			if item.original && !useMatch {
+				cs = C.CString(item.oriname)
+			} else {
+				fp, err := os.CreateTemp(tempdir, "mkcTST")
+				x(err)
+				if useMatch {
+					_, err = fp.WriteString(matchdata[i])
+				} else {
+					_, err = fp.WriteString(item.data)
+				}
+				x(err)
+				filename = fp.Name()
+				x(fp.Close())
+				cs = C.CString(filename)
+			}
+
+			result := C.xq_call(cs, style, lang, cEMPTY, 1, &(vars[0]))
+
+			C.free(unsafe.Pointer(cs))
+			C.free(unsafe.Pointer(vars[1]))
+			if useMatch {
+				item.original = false
+				os.Remove(filename)
+			} else {
+				if item.original {
+					item.original = false
+				} else {
+					os.Remove(filename)
+				}
+			}
+
+			if C.xq_error(result) == 0 {
+				item.data = C.GoString(C.xq_text(result))
+				item.match = []string{item.data}
+				if len(item.data) > 0 {
+					chOut <- item
+				}
+			}
+			C.xq_free(result)
+		}
 	}
 	close(chOut)
 }
@@ -460,7 +528,9 @@ func readCompact(chOut chan<- Item, infile string, i, n int) {
 	for r.HasNext() {
 		j++
 		name, data := r.Next()
-		fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j, name)
+		if verbose {
+			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j, name)
+		}
 		chOut <- Item{
 			arch:    infile + ".data.dz",
 			name:    name,
@@ -486,7 +556,9 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 		for docs.Next() {
 			j++
 			name := docs.Name()
-			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/%d %s        \r", i, n, infile, j, size, name)
+			if verbose {
+				fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/%d %s        \r", i, n, infile, j, size, name)
+			}
 			chOut <- Item{
 				arch:    infile,
 				name:    name,
@@ -525,7 +597,9 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 				match = make([]string, 0)
 			}
 			match = append(match, docs.Match())
-			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j, name)
+			if verbose {
+				fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j, name)
+			}
 		}
 		if content != "" {
 			chOut <- Item{
@@ -548,7 +622,9 @@ func readZip(chOut chan<- Item, infile string, i, n int) {
 			continue
 		}
 		name := file.Name
-		fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j+1, name)
+		if verbose {
+			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j+1, name)
+		}
 		f, err := file.Open()
 		x(err)
 		data, err := io.ReadAll(f)
@@ -564,7 +640,9 @@ func readZip(chOut chan<- Item, infile string, i, n int) {
 }
 
 func readXml(chOut chan<- Item, infile string, i, n int) {
-	fmt.Fprintf(os.Stderr, " %d/%d %s        \r", i, n, infile)
+	if verbose {
+		fmt.Fprintf(os.Stderr, " %d/%d %s        \r", i, n, infile)
+	}
 	data, err := os.ReadFile(infile)
 	x(err)
 	chOut <- Item{
@@ -598,7 +676,9 @@ func readDir(chOut chan<- Item, indir, subdir string, i, n int) {
 		if !strings.HasSuffix(name, ".xml") {
 			continue
 		}
-		fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/%d %s        \r", i, n, indir, j+1, size, name)
+		if verbose {
+			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/%d %s        \r", i, n, indir, j+1, size, name)
+		}
 		fullname := filepath.Join(indir, name)
 		data, err := os.ReadFile(fullname)
 		x(err)

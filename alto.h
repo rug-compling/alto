@@ -1,5 +1,5 @@
-#ifndef MKCORPUS_H
-#define MKCORPUS_H
+#ifndef ALTO_H
+#define ALTO_H
 
 #ifdef __cplusplus
 extern "C"
@@ -25,4 +25,4 @@ extern "C"
 }
 #endif
 
-#endif /* MKCORPUS */
+#endif /* ALTO */

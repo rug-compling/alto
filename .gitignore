@@ -3,5 +3,5 @@ out*
 *.data.dz
 *.index
 *.xsl
-mkcorpus
-mkcorpus_v6
+alto
+alto_v6

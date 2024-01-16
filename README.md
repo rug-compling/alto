@@ -1,37 +1,33 @@
+## Voorbeelden:
+
+alto - "fp://node[@root='fiets']" "fp://conllu[@status='OK']/text()" "tt:%f%m\n" /my/corpora/paqu/cdb.dact
+
+alto - "fp://node[node[@root='fiets']]" "tt:%c:%f\n%S\n%M\n" /my/corpora/paqu/cdb.dact
+
+alto - "fp://node[@cat='mwu']" "tq:mwu.xq" "ac:" /my/corpora/paqu/cdb.dact
+alto - "fp://node[@cat='mwu']" "Tq:mwu.xq" "ac:" /my/corpora/paqu/cdb.dact
+
+
 ## doTemplate
 
 | flag | output |
 |----|----|
-| %% | % |
-| %c | corpusname |
-| %f | filename |
-| %i | *id* |
-| %I | sentid |
-| %s | sentence
-| %S | *sentence marked* |
-| %m | *match* |
-| %M | *match tree* |
-| %w | *match, words only |
-| %d | metadata |
+| `%%` | `%` |
+| `%c` | corpusname |
+| `%f` | filename |
+| `%b` | file body |
+| `%i` | *id* |
+| `%I` | sentid |
+| `%s` | sentence
+| `%S` | *sentence marked* |
+| `%m` | *match* |
+| `%M` | *match tree* |
+| `%w` | *match, words only* |
+| `%d` | metadata |
+| `\n` | newline |
+| `\t` | tab |
 
 *cursief* → voor elke match
-
-voorbeeld tree:
-
-```
-body ssub
-    su [1]
-    obj1 np
-        det tw "zoveel"
-        hd n "Zuidamerikanen"
-    ld pp
-        hd vz "in"
-        obj1 np
-            det vnw "haar"
-            hd n "bananen"
-    hd ww "doet"
-[1] vnw "die"
-```  
 
 
 ## Huidige status

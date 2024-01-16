@@ -14,6 +14,7 @@ import (
 type Fields struct {
 	Corpusname     string
 	Filename       string
+	Body           string
 	ID             int
 	Sentid         string
 	Sentence       string
@@ -33,6 +34,7 @@ var (
   %%  %
   %c  corpusname
   %f  filename
+  %b  file body
   %i  *id
   %I  sentid
   %s  sentence
@@ -68,6 +70,8 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 			return "{{.Corpusname" + toS
 		case 'f':
 			return "{{.Filename" + toS
+		case 'b':
+			return "{{.Body" + toS
 		case 'i':
 			needAlpino = true
 			needID = true
@@ -123,6 +127,7 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 
 		data.Corpusname = item.arch
 		data.Filename = item.oriname
+		data.Body = item.data
 		var alpino alpinods.AlpinoDS
 		if needAlpino {
 			x(xml.Unmarshal([]byte(item.data), &alpino))
@@ -142,7 +147,9 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 
 			if multi {
 				var node alpinods.Node
-				x(xml.Unmarshal([]byte(item.match[i]), &node))
+				if needAlpino {
+					x(xml.Unmarshal([]byte(item.match[i]), &node))
+				}
 				if needID {
 					data.ID = node.ID
 				}
