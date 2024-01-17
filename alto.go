@@ -2,6 +2,7 @@ package main
 
 // TODO: alto_v6: xslt3, xpath3
 // TODO: macro's
+// TODO: extra variabelen voor xslt en xquery
 
 /*
 #cgo LDFLAGS: -lxqilla -lxerces-c
@@ -62,23 +63,41 @@ func usage() {
 		`
 Usage: %s outfile [action...] [infile...]
 
+
 Actions:
 
     ud:add : insert Universal Dependencies
     ud:rm  : remove Universal Dependencies
 
-	ff:{filename}   : filter by filename (dact, compact, zip)
+    ff:{filename}   : filter by filename (dact, compact, zip)
     fp:{expression} : filter by XPATH2 {expression}
 
     tq:{xqueryfile} : transform with XQuery {xqueryfile}
     ts:{stylefile}  : transform with XSLT2 {stylefile}
-    tt:{template}   : transform with Go {template}
+    tt:{template}   : transform with {template}
 
     Tq:{xqueryfile} : like tq, match data as input
     Ts:{stylefile}  : like ts, match data as input
 
     ac:sum          : aggregated match count
     ac:relative     : aggregated relative match count
+
+
+Template placeholders:
+
+    %%%%  %%
+    %%c  corpusname
+    %%f  filename
+    %%b  file body
+    %%i  id of matching node
+    %%I  sentence id
+    %%s  sentence
+    %%S  colored sentence
+    %%m  match
+    %%M  match as tree
+    %%w  match words
+    %%d  metadata
+
 
 Infile names can be given as arguments or/and one name per line on stdin
 
@@ -163,7 +182,6 @@ func main() {
 			var lang C.Language
 			switch act {
 			case "tq", "Tq":
-				// TODO: hoe zet je de context in xquery?
 				lang = C.langXQUERY
 			case "ts", "Ts":
 				lang = C.langXSLT
