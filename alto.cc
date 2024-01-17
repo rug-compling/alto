@@ -54,10 +54,8 @@ extern "C"
         try
         {
 
-            // AutoDelete<DynamicContext> context(xqilla.createContext(lang));
-            // AutoDelete<XQQuery> qq(xqilla.parse(X(query), context));
-            DynamicContext *context = xqilla.createContext(lang);
-            XQQuery *qq = xqilla.parse(X(query), context);
+            AutoDelete<DynamicContext> context(xqilla.createContext(lang));
+            AutoDelete<XQQuery> qq(xqilla.parse(X(query), context, 0, XQilla::NO_ADOPT_CONTEXT));
 
             for (int i = 0; i < nvars; i++)
             {
@@ -87,17 +85,6 @@ extern "C"
             xe.printDebug(X("xq_call"));
             xqr->error = 1;
         }
-
-        /*
-            if (qq != NULL)
-            {
-                delete qq;
-            }
-            if (context != NULL)
-            {
-                delete context;
-            }
-        */
 
         return xqr;
     }
