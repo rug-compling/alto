@@ -3,6 +3,12 @@ package main
 // TODO: alto_v6: xslt3, xpath3
 // TODO: macro's
 // TODO: extra variabelen voor xslt en xquery
+// TODO: optie: bestanden vervangen in bestaand corpus (niet voor compact corpus)
+// TODO: naam macrofile in environment variable
+// TODO: toon macro-expansie, in stappen
+// TODO: alto opties input acties output
+// TDOO: documentatie
+// TODO: code opschonen, documenteren, opsplitsen over bestanden
 
 /*
 #cgo LDFLAGS: -lxqilla -lxerces-c
