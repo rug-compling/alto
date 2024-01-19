@@ -72,13 +72,14 @@ var (
 func usage() {
 	fmt.Printf(
 		`
-Usage: %s [option...] [infile...] [action...] outfile
+Usage: %s [(option | action | filename) ...]
 
 Options:
 
     -e              : show macro-expansion
     -m filename     : use this macrofile for xpath
-    -o              : overwrite xml in existing output (only for dact, zip, and directory)
+    -o filename     : output
+    -r              : overwrite xml in existing output (only for dact, zip, and directory)
     -v name=value   : set global variable
 
 You can also set the macrofile with the environment variable ALTO_MACROFILE
@@ -122,27 +123,28 @@ Template placeholders:
     %%d  metadata
 
 
-Infile names can be given as arguments or/and one name per line on stdin
+Input filenames can be given as arguments or/and one name per line on stdin
 
 Examples:
-    %s corpus.zip *.xml
-    %s corpus.dact corpus.zip
-    find . '-name *.xml' | %s corpus.zip
+    %s -o corpus.zip *.xml
+    %s -o corpus.dact corpus.zip
+    find . '-name *.xml' | %s -o corpus.zip
 
-Valid infile names:
+Valid input filenames:
     *.xml
     *.dact (or *.dbxml)
     *.data.dz (or *.index)
     *.zip
     directory name
 
-Valid outfile names:
+Valid output filenames:
     *.dact (or *.dbxml)
     *.data.dz (or *.index)
     *.zip
     *.txt
-    -  (stdout)
     directory name
+
+Default output is stdout
 
 `,
 		os.Args[0],
@@ -152,92 +154,16 @@ Valid outfile names:
 }
 
 func main() {
-	macrofile = os.Getenv("ALTO_MACROFILE")
-
-	argp := 1
-	argc := len(os.Args)
-	if argc == 1 {
+	if len(os.Args) == 1 && util.IsTerminal(os.Stdin) {
 		usage()
 		return
 	}
-	for argp < argc && strings.HasPrefix(os.Args[argp], "-") {
-		if arg := os.Args[argp]; arg == "-e" {
-			showExpansion = true
-			argp++
-		} else if arg := os.Args[argp]; arg == "-h" {
-			usage()
-			return
-		} else if arg == "-m" {
-			if argp == argc-1 {
-				fmt.Fprintln(os.Stderr, "Missing filename for option -m")
-				return
-			}
-			macrofile = os.Args[argp+1]
-			argp += 2
-		} else if arg := os.Args[argp]; arg == "-o" {
-			overwrite = true
-			argp++
-		} else if arg == "-v" {
-			if argp == argc-1 {
-				fmt.Fprintln(os.Stderr, "Missing variable for option -v")
-				return
-			}
-			a := strings.SplitN(os.Args[argp+1], "=", 2)
-			if len(a) != 2 || a[0] == "" || a[1] == "" {
-				fmt.Fprintln(os.Stderr, "Invalid name=value for option -v:", os.Args[argp+1])
-				return
-			}
-			variables = append(variables, C.CString(a[0]), C.CString(a[1]))
-			argp += 2
-		} else {
-			fmt.Fprintln(os.Stderr, "Unknown option", arg)
-			return
-		}
-	}
 
-	p1 := argp
-	for argp < argc-1 {
-		if arg := os.Args[argp]; len(arg) > 2 && arg[2] == ':' {
-			break
-		} else {
-			argp++
-		}
-	}
-	p2 := argp
-
-	p := argp
-	for argp < argc {
-		if arg := os.Args[argp]; len(arg) > 2 && arg[2] == ':' {
-			argp++
-		} else {
-			break
-		}
-	}
-	actions := os.Args[p:argp]
-
-	if argp == argc {
-		fmt.Fprintln(os.Stderr, "Missing output filename")
-		return
-	}
-
-	if argp < argc-1 {
-		fmt.Fprintf(os.Stderr, "Invalid final arguments %v, should be a single output filename\n", os.Args[argp:])
-		return
-	}
-
-	outfile := os.Args[argp]
-
-	if overwrite {
-		if outfile == "-" ||
-			strings.HasSuffix(outfile, ".data.dz") ||
-			strings.HasSuffix(outfile, ".index") ||
-			strings.HasSuffix(outfile, ".txt") {
-			fmt.Fprintln(os.Stderr, "Option -o only valid for output to dact, zip, or directory")
-			return
-		}
-	}
-
+	macrofile = os.Getenv("ALTO_MACROFILE")
+	outfile := ""
 	inputfiles := make([]string, 0)
+	actions := make([]string, 0)
+
 	if !util.IsTerminal(os.Stdin) {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
@@ -245,7 +171,64 @@ func main() {
 		}
 		x(scanner.Err())
 	}
-	inputfiles = append(inputfiles, os.Args[p1:p2]...)
+
+	for i := 1; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		if strings.HasPrefix(arg, "-") {
+			switch arg {
+			case "-e":
+				showExpansion = true
+			case "-h":
+				usage()
+				return
+			case "-m":
+				if i == len(os.Args)-1 {
+					fmt.Fprintln(os.Stderr, "Missing filename for option -m")
+					return
+				}
+				i++
+				macrofile = os.Args[i]
+			case "-o":
+				if i == len(os.Args)-1 {
+					fmt.Fprintln(os.Stderr, "Missing filename for option -o")
+					return
+				}
+				i++
+				outfile = os.Args[i]
+			case "-r":
+				overwrite = true
+			case "-v":
+				if i == len(os.Args)-1 {
+					fmt.Fprintln(os.Stderr, "Missing variable for option -v")
+					return
+				}
+				i++
+				a := strings.SplitN(os.Args[i], "=", 2)
+				if len(a) != 2 || a[0] == "" || a[1] == "" {
+					fmt.Fprintln(os.Stderr, "Invalid name=value for option -v:", os.Args[i])
+					return
+				}
+				variables = append(variables, C.CString(a[0]), C.CString(a[1]))
+			default:
+				fmt.Fprintln(os.Stderr, "Unknown option", arg)
+				return
+			}
+		} else if len(arg) > 2 && arg[2] == ':' {
+			actions = append(actions, arg)
+		} else {
+			inputfiles = append(inputfiles, arg)
+		}
+	}
+
+	if overwrite {
+		if outfile == "" ||
+			strings.HasSuffix(outfile, ".data.dz") ||
+			strings.HasSuffix(outfile, ".index") ||
+			strings.HasSuffix(outfile, ".txt") {
+			fmt.Fprintln(os.Stderr, "Option -o only valid for output to dact, zip, or directory")
+			return
+		}
+	}
 
 	if len(inputfiles) == 0 {
 		fmt.Fprintln(os.Stderr, "Missing input file(s)")
@@ -306,7 +289,7 @@ func main() {
 		go writeZip(chIn, outfile)
 	} else if strings.HasSuffix(outfile, ".txt") {
 		go writeTxt(chIn, outfile)
-	} else if outfile == "-" {
+	} else if outfile == "" {
 		verbose = false
 		go writeStdout(chIn)
 	} else {
