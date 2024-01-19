@@ -2,12 +2,9 @@ package main
 
 // TODO: alto_v6: xslt3, xpath3
 // TODO: macro's
-// TODO: extra variabelen voor xslt en xquery
 // TODO: optie: bestanden vervangen in bestaand corpus (niet voor compact corpus)
-// TODO: naam macrofile in environment variable
 // TODO: toon macro-expansie, in stappen
-// TODO: alto opties input acties output
-// TDOO: documentatie
+// TODO: documentatie
 // TODO: code opschonen, documenteren, opsplitsen over bestanden
 
 /*
@@ -58,22 +55,42 @@ var (
 	cEMPTY      = C.CString("")
 	cFILENAME   = C.CString("filename")
 
-	verbose = true
+	verbose       = true
+	macrofile     = ""
+	showExpansion = false
+	overwrite     = false
+	variables     = []*C.char{
+		C.CString("filename"),
+		cEMPTY,
+		C.CString("corpusname"),
+		cEMPTY,
+	}
 
 	x = util.CheckErr
 )
 
 func usage() {
-	fmt.Fprintf(
-		os.Stderr,
+	fmt.Printf(
 		`
-Usage: %s outfile [action...] [infile...]
+Usage: %s [option...] [infile...] [action...] outfile
 
+Options:
+
+    -e              : show macro-expansion
+    -m filename     : use this macrofile for xpath
+    -o              : overwrite xml in existing output (only for dact, zip, and directory)
+    -v name=value   : set global variable
+
+You can also set the macrofile with the environment variable ALTO_MACROFILE
+The option -m has precendence
+
+You can use the option -v more than once
+The variables "filename" and "corpusname" are set automatically
 
 Actions:
 
-    ud:add : insert Universal Dependencies
-    ud:rm  : remove Universal Dependencies
+    ud:add          : insert Universal Dependencies
+    ud:rm           : remove Universal Dependencies
 
     ff:{filename}   : filter by filename (dact, compact, zip)
     fp:{expression} : filter by XPATH2 {expression}
@@ -135,31 +152,103 @@ Valid outfile names:
 }
 
 func main() {
-	actions := make([]string, 0)
+	macrofile = os.Getenv("ALTO_MACROFILE")
 
-	// backward compatibility
-	if len(os.Args) > 1 && os.Args[1] == "-u" {
-		actions = append(actions, "ud:add")
-		os.Args = append(os.Args[:1], os.Args[2:]...)
-	}
-
-	if len(os.Args) == 1 {
+	argp := 1
+	argc := len(os.Args)
+	if argc == 1 {
 		usage()
 		return
 	}
-
-	idx := 2
-	for idx < len(os.Args) {
-		if len(os.Args[idx]) > 2 && os.Args[idx][2] == ':' {
-			actions = append(actions, os.Args[idx])
-			idx++
-			continue
+	for argp < argc && strings.HasPrefix(os.Args[argp], "-") {
+		if arg := os.Args[argp]; arg == "-e" {
+			showExpansion = true
+			argp++
+		} else if arg := os.Args[argp]; arg == "-h" {
+			usage()
+			return
+		} else if arg == "-m" {
+			if argp == argc-1 {
+				fmt.Fprintln(os.Stderr, "Missing filename for option -m")
+				return
+			}
+			macrofile = os.Args[argp+1]
+			argp += 2
+		} else if arg := os.Args[argp]; arg == "-o" {
+			overwrite = true
+			argp++
+		} else if arg == "-v" {
+			if argp == argc-1 {
+				fmt.Fprintln(os.Stderr, "Missing variable for option -v")
+				return
+			}
+			a := strings.SplitN(os.Args[argp+1], "=", 2)
+			if len(a) != 2 || a[0] == "" || a[1] == "" {
+				fmt.Fprintln(os.Stderr, "Invalid name=value for option -v:", os.Args[argp+1])
+				return
+			}
+			variables = append(variables, C.CString(a[0]), C.CString(a[1]))
+			argp += 2
+		} else {
+			fmt.Fprintln(os.Stderr, "Unknown option", arg)
+			return
 		}
-		break
 	}
 
-	if len(os.Args) == idx && util.IsTerminal(os.Stdin) {
-		usage()
+	p1 := argp
+	for argp < argc-1 {
+		if arg := os.Args[argp]; len(arg) > 2 && arg[2] == ':' {
+			break
+		} else {
+			argp++
+		}
+	}
+	p2 := argp
+
+	p := argp
+	for argp < argc {
+		if arg := os.Args[argp]; len(arg) > 2 && arg[2] == ':' {
+			argp++
+		} else {
+			break
+		}
+	}
+	actions := os.Args[p:argp]
+
+	if argp == argc {
+		fmt.Fprintln(os.Stderr, "Missing output filename")
+		return
+	}
+
+	if argp < argc-1 {
+		fmt.Fprintf(os.Stderr, "Invalid final arguments %v, should be a single output filename\n", os.Args[argp:])
+		return
+	}
+
+	outfile := os.Args[argp]
+
+	if overwrite {
+		if outfile == "-" ||
+			strings.HasSuffix(outfile, ".data.dz") ||
+			strings.HasSuffix(outfile, ".index") ||
+			strings.HasSuffix(outfile, ".txt") {
+			fmt.Fprintln(os.Stderr, "Option -o only valid for output to dact, zip, or directory")
+			return
+		}
+	}
+
+	inputfiles := make([]string, 0)
+	if !util.IsTerminal(os.Stdin) {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			inputfiles = append(inputfiles, scanner.Text())
+		}
+		x(scanner.Err())
+	}
+	inputfiles = append(inputfiles, os.Args[p1:p2]...)
+
+	if len(inputfiles) == 0 {
+		fmt.Fprintln(os.Stderr, "Missing input file(s)")
 		return
 	}
 
@@ -209,8 +298,6 @@ func main() {
 		}
 	}
 
-	outfile := os.Args[1]
-
 	if strings.HasSuffix(outfile, ".data.dz") || strings.HasSuffix(outfile, ".index") {
 		go writeCompact(chIn, outfile)
 	} else if strings.HasSuffix(outfile, ".dbxml") || strings.HasSuffix(outfile, ".dact") {
@@ -226,16 +313,8 @@ func main() {
 		go writeDir(chIn, outfile)
 	}
 
-	if !util.IsTerminal(os.Stdin) {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			os.Args = append(os.Args, scanner.Text())
-		}
-		x(scanner.Err())
-	}
-
-	n := len(os.Args) - idx
-	for i, infile := range os.Args[idx:] {
+	n := len(inputfiles)
+	for i, infile := range inputfiles {
 		infile = filepath.Clean(infile)
 		if strings.HasSuffix(infile, ".data.dz") || strings.HasSuffix(infile, ".index") {
 			readCompact(chStart, infile, i+1, n)
@@ -367,10 +446,6 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 	x(err)
 	style := C.CString(string(b))
 
-	// TODO: corpusname
-	vars := make([]*C.char, 2)
-	vars[0] = C.CString("filename")
-
 	for item := range chIn {
 		matchdata := item.match
 		for i := 0; ; i++ {
@@ -382,7 +457,8 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 				break
 			}
 
-			vars[1] = C.CString(item.oriname)
+			variables[1] = C.CString(item.oriname)
+			variables[3] = C.CString(item.arch)
 
 			if !item.transformed {
 				item.transformed = true
@@ -407,10 +483,11 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 				cs = C.CString(filename)
 			}
 
-			result := C.xq_call(cs, style, lang, cEMPTY, 1, &(vars[0]))
+			result := C.xq_call(cs, style, lang, cEMPTY, C.int(len(variables)/2), &(variables[0]))
 
 			C.free(unsafe.Pointer(cs))
-			C.free(unsafe.Pointer(vars[1]))
+			C.free(unsafe.Pointer(variables[1]))
+			C.free(unsafe.Pointer(variables[3]))
 			if useMatch {
 				item.original = false
 				os.Remove(filename)
