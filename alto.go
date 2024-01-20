@@ -1,7 +1,7 @@
 package main
 
+// TODO: filter by filename
 // TODO: macro's
-// TODO: optie: bestanden vervangen in bestaand corpus (niet voor compact corpus)
 // TODO: toon macro-expansie, in stappen
 // TODO: documentatie
 // TODO: code opschonen, documenteren, opsplitsen over bestanden
@@ -60,7 +60,8 @@ var (
 	verbose       = true
 	macrofile     = ""
 	showExpansion = false
-	overwrite     = false
+	replace       = false
+	fulltext      = 0
 	variables     = []*C.char{
 		C.CString("filename"),
 		cEMPTY,
@@ -79,9 +80,10 @@ Usage: %s [(option | action | filename) ...]
 Options:
 
     -e              : show macro-expansion
+    -f              : use fulltext extension
     -m filename     : use this macrofile for xpath
     -o filename     : output
-    -r              : overwrite xml in existing output (only for dact, zip, and directory)
+    -r              : replace xml in existing dact file
     -v name=value   : set global variable
 
 You can also set the macrofile with the environment variable ALTO_MACROFILE
@@ -96,17 +98,17 @@ Actions:
     ud:rm           : remove Universal Dependencies
 
     ff:{filename}   : filter by filename (dact, compact, zip)
-    fp:{expression} : filter by XPATH2 {expression}
+    fp:{expression} : filter by %s {expression}
 
-    tq:{xqueryfile} : transform with XQuery {xqueryfile}
-    ts:{stylefile}  : transform with XSLT2 {stylefile}
+    tq:{xqueryfile} : transform with %s {xqueryfile}
+    ts:{stylefile}  : transform with %s {stylefile}
     tt:{template}   : transform with {template}
 
     Tq:{xqueryfile} : like tq, match data as input
     Ts:{stylefile}  : like ts, match data as input
 
     ac:sum          : aggregated match count
-    ac:relative     : aggregated relative match count
+    ac:rel          : aggregated relative match count
 
 
 Template placeholders:
@@ -150,6 +152,9 @@ Default output is stdout
 
 `,
 		os.Args[0],
+		C.GoString(C.xq_xpath_version()),
+		C.GoString(C.xq_xquery_version()),
+		C.GoString(C.xq_xslt_version()),
 		os.Args[0],
 		os.Args[0],
 		os.Args[0])
@@ -180,6 +185,8 @@ func main() {
 			switch arg {
 			case "-e":
 				showExpansion = true
+			case "-f":
+				fulltext = 1
 			case "-h":
 				usage()
 				return
@@ -198,7 +205,7 @@ func main() {
 				}
 				outfile = os.Args[i]
 			case "-r":
-				overwrite = true
+				replace = true
 			case "-v":
 				i++
 				if i == len(os.Args) {
@@ -222,12 +229,9 @@ func main() {
 		}
 	}
 
-	if overwrite {
-		if outfile == "" ||
-			strings.HasSuffix(outfile, ".data.dz") ||
-			strings.HasSuffix(outfile, ".index") ||
-			strings.HasSuffix(outfile, ".txt") {
-			fmt.Fprintln(os.Stderr, "Option -o only valid for output to dact, zip, or directory")
+	if replace {
+		if !(strings.HasSuffix(outfile, ".dact") || strings.HasSuffix(outfile, ".dbxml")) {
+			fmt.Fprintln(os.Stderr, "Option -r only valid for output to dact")
 			return
 		}
 	}
@@ -277,7 +281,7 @@ func main() {
 			chIn = chOut
 		} else if act == "ac" {
 			chOut := make(chan Item, 100)
-			go aggregateCount(chIn, chOut, arg == "relative")
+			go aggregateCount(chIn, chOut, strings.HasPrefix(arg, "rel"))
 			chIn = chOut
 		} else {
 			fmt.Fprintf(os.Stderr, "Unknown action %q\n", action)
@@ -427,7 +431,7 @@ func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
 			cs = C.CString(filename)
 		}
 
-		result := C.xq_call(cs, cxpath, C.langXPATH, cDEVIDER, 0, &(vars[0]))
+		result := C.xq_call(cs, cxpath, C.langXPATH, C.int(fulltext), cDEVIDER, 0, &(vars[0]))
 
 		C.free(unsafe.Pointer(cs))
 		if !item.original {
@@ -494,7 +498,7 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 				cs = C.CString(filename)
 			}
 
-			result := C.xq_call(cs, style, lang, cEMPTY, C.int(len(variables)/2), &(variables[0]))
+			result := C.xq_call(cs, style, lang, C.int(fulltext), cEMPTY, C.int(len(variables)/2), &(variables[0]))
 
 			C.free(unsafe.Pointer(cs))
 			C.free(unsafe.Pointer(variables[1]))
@@ -549,11 +553,13 @@ func writeCompact(chIn <-chan Item, outfile string) {
 func writeDact(chIn <-chan Item, outfile string) {
 	// runtime.LockOSThread()
 
-	mustNotExist(outfile)
+	if !replace {
+		mustNotExist(outfile)
+	}
 	db, err := dbxml.OpenReadWrite(outfile)
 	x(err)
 	for item := range chIn {
-		x(db.PutXml(item.name, item.data, false))
+		x(db.PutXml(item.name, item.data, replace))
 	}
 	db.Close()
 	close(chDone)
