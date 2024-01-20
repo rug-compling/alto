@@ -1,9 +1,18 @@
 #include "alto.h"
-// #include <xercesc/framework/MemBufInputSource.hpp>
 #include <string>
-#include <xercesc/framework/MemoryManager.hpp>
 #include <xqilla/exceptions/XQException.hpp>
 #include <xqilla/xqilla-simple.hpp>
+
+#include <db.h>
+#ifdef DB_VERSION_FAMILY
+#define XPATH XQilla::XPATH3
+#define XQUERY XQilla::XQUERY3
+#define XSLT XQilla::XSLT3
+#else
+#define XPATH XQilla::XPATH2
+#define XQUERY XQilla::XQUERY
+#define XSLT XQilla::XSLT2
+#endif
 
 extern "C"
 {
@@ -41,13 +50,13 @@ extern "C"
         switch (language)
         {
         case langXPATH:
-            lang = XQilla::XPATH2;
+            lang = XPATH;
             break;
         case langXQUERY:
-            lang = XQilla::XQUERY;
+            lang = XQUERY;
             break;
         case langXSLT:
-            lang = XQilla::XSLT2;
+            lang = XSLT;
             break;
         }
 

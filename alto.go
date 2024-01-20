@@ -1,6 +1,5 @@
 package main
 
-// TODO: alto_v6: xslt3, xpath3
 // TODO: macro's
 // TODO: optie: bestanden vervangen in bestaand corpus (niet voor compact corpus)
 // TODO: toon macro-expansie, in stappen
