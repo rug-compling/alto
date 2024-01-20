@@ -17,11 +17,13 @@ import "C"
 import (
 	"archive/zip"
 	"bufio"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"sort"
+
 	//"runtime"
 	"strings"
 	"unsafe"
@@ -29,6 +31,7 @@ import (
 	"github.com/pebbe/compactcorpus"
 	"github.com/pebbe/dbxml"
 	"github.com/pebbe/util"
+	"github.com/rug-compling/alpinods"
 	"github.com/rug-compling/alud/v2"
 )
 
@@ -182,27 +185,27 @@ func main() {
 				usage()
 				return
 			case "-m":
-				if i == len(os.Args)-1 {
+				i++
+				if i == len(os.Args) {
 					fmt.Fprintln(os.Stderr, "Missing filename for option -m")
 					return
 				}
-				i++
 				macrofile = os.Args[i]
 			case "-o":
-				if i == len(os.Args)-1 {
+				i++
+				if i == len(os.Args) {
 					fmt.Fprintln(os.Stderr, "Missing filename for option -o")
 					return
 				}
-				i++
 				outfile = os.Args[i]
 			case "-r":
 				overwrite = true
 			case "-v":
-				if i == len(os.Args)-1 {
+				i++
+				if i == len(os.Args) {
 					fmt.Fprintln(os.Stderr, "Missing variable for option -v")
 					return
 				}
-				i++
 				a := strings.SplitN(os.Args[i], "=", 2)
 				if len(a) != 2 || a[0] == "" || a[1] == "" {
 					fmt.Fprintln(os.Stderr, "Invalid name=value for option -v:", os.Args[i])
@@ -248,7 +251,9 @@ func main() {
 			go doUD(chIn, chOut)
 			chIn = chOut
 		} else if action == "ud:rm" {
-			// TODO
+			chOut := make(chan Item, 100)
+			go undoUD(chIn, chOut)
+			chIn = chOut
 		} else if act == "fp" {
 			if i == 0 {
 				firstFilter = arg
@@ -308,7 +313,7 @@ func main() {
 		} else if strings.HasSuffix(infile, ".xml") {
 			readXml(chStart, infile, i+1, n)
 		} else {
-			readDir(chStart, infile, "", i+1, n)
+			readDir(chStart, infile, "", i+1, n, firstFilter)
 		}
 	}
 
@@ -365,6 +370,30 @@ func doUD(chIn <-chan Item, chOut chan<- Item) {
 		if s != "" {
 			item.data = s
 		}
+		item.original = false
+		chOut <- item
+	}
+	close(chOut)
+}
+
+func undoUD(chIn <-chan Item, chOut chan<- Item) {
+	var f func(*alpinods.Node)
+	f = func(node *alpinods.Node) {
+		node.Ud = nil
+		if node.Node != nil {
+			for _, n := range node.Node {
+				f(n)
+			}
+		}
+	}
+
+	for item := range chIn {
+		var alpino alpinods.AlpinoDS
+		x(xml.Unmarshal([]byte(item.data), &alpino))
+		f(alpino.Node)
+		alpino.Root = nil
+		alpino.Conllu = nil
+		item.data = alpino.String()
 		item.original = false
 		chOut <- item
 	}
@@ -738,7 +767,7 @@ func readXml(chOut chan<- Item, infile string, i, n int) {
 	}
 }
 
-func readDir(chOut chan<- Item, indir, subdir string, i, n int) {
+func readDir(chOut chan<- Item, indir, subdir string, i, n int, firstfilter string) {
 	dirname := indir
 	if subdir != "" {
 		dirname = filepath.Join(indir, subdir)
@@ -752,18 +781,29 @@ func readDir(chOut chan<- Item, indir, subdir string, i, n int) {
 		if subdir != "" {
 			name = filepath.Join(subdir, name)
 		}
+		fullname := filepath.Join(indir, name)
 		if entry.IsDir() {
-			readDir(chOut, indir, name, i, n)
+			readDir(chOut, indir, name, j+1, size, firstfilter)
 			continue
 		}
-		// TODO: ook dact, compact, zip
+		if strings.HasSuffix(name, ".dact") || strings.HasSuffix(name, ".dbxml") {
+			readDact(chOut, fullname, j+1, size, firstfilter)
+			continue
+		}
+		if strings.HasSuffix(name, ".data.dz") || strings.HasSuffix(name, ".index") {
+			readCompact(chOut, fullname, j+1, size)
+			continue
+		}
+		if strings.HasSuffix(name, ".zip") {
+			readZip(chOut, fullname, j+1, size)
+			continue
+		}
 		if !strings.HasSuffix(name, ".xml") {
 			continue
 		}
 		if verbose {
 			fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/%d %s        \r", i, n, indir, j+1, size, name)
 		}
-		fullname := filepath.Join(indir, name)
 		data, err := os.ReadFile(fullname)
 		x(err)
 		chOut <- Item{
