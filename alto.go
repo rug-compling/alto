@@ -1,8 +1,6 @@
 package main
 
 // TODO: filter by filename
-// TODO: macro's
-// TODO: toon macro-expansie, in stappen
 // TODO: documentatie
 // TODO: code opschonen, documenteren, opsplitsen over bestanden
 
@@ -16,13 +14,14 @@ import "C"
 import (
 	"archive/zip"
 	"bufio"
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
-
 	//"runtime"
 	"strings"
 	"unsafe"
@@ -32,6 +31,7 @@ import (
 	"github.com/pebbe/util"
 	"github.com/rug-compling/alpinods"
 	"github.com/rug-compling/alud/v2"
+	"github.com/wamuir/go-xslt"
 )
 
 type Item struct {
@@ -62,14 +62,19 @@ var (
 	showExpansion = false
 	replace       = false
 	fulltext      = 0
+	libxslt       = false
 	variables     = []*C.char{
 		C.CString("filename"),
 		cEMPTY,
 		C.CString("corpusname"),
 		cEMPTY,
 	}
-
-	x = util.CheckErr
+	xsltVariables = make([]xslt.Parameter, 0)
+	macros        = make(map[string]string)
+	macroRE       = regexp.MustCompile(`([a-zA-Z][_a-zA-Z0-9]*)\s*=\s*"""((?s:.*?))"""`)
+	macroKY       = regexp.MustCompile(`%[a-zA-Z][_a-zA-Z0-9]*%`)
+	macroCOM      = regexp.MustCompile(`(?m:^\s*#.*)`)
+	x             = util.CheckErr
 )
 
 func usage() {
@@ -85,6 +90,7 @@ Options:
     -o filename     : output
     -r              : replace xml in existing dact file
     -v name=value   : set global variable
+    -x              : use libxslt instead of xqilla for xslt
 
 You can also set the macrofile with the environment variable ALTO_MACROFILE
 The option -m has precendence
@@ -213,11 +219,14 @@ func main() {
 					return
 				}
 				a := strings.SplitN(os.Args[i], "=", 2)
-				if len(a) != 2 || a[0] == "" || a[1] == "" {
+				if len(a) != 2 || a[0] == "" /* || a[1] == "" */ {
 					fmt.Fprintln(os.Stderr, "Invalid name=value for option -v:", os.Args[i])
 					return
 				}
 				variables = append(variables, C.CString(a[0]), C.CString(a[1]))
+				xsltVariables = append(xsltVariables, xslt.Parameter(xslt.StringParameter{Name: a[0], Value: a[1]}))
+			case "-x":
+				libxslt = true
 			default:
 				fmt.Fprintln(os.Stderr, "Unknown option", arg)
 				return
@@ -258,6 +267,7 @@ func main() {
 			go undoUD(chIn, chOut)
 			chIn = chOut
 		} else if act == "fp" {
+			arg = expandMacros(arg)
 			if i == 0 {
 				firstFilter = arg
 			}
@@ -273,7 +283,11 @@ func main() {
 				lang = C.langXSLT
 			}
 			chOut := make(chan Item, 100)
-			go transformStylesheet(chIn, chOut, lang, act[0] == 'T', arg)
+			if act[1] == 's' && libxslt {
+				go transformLibXSLT(chIn, chOut, act[0] == 'T', arg)
+			} else {
+				go transformStylesheet(chIn, chOut, lang, act[0] == 'T', arg)
+			}
 			chIn = chOut
 		} else if act == "tt" {
 			chOut := make(chan Item, 100)
@@ -450,6 +464,52 @@ func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
 			}
 		}
 		C.xq_free(result)
+	}
+	close(chOut)
+}
+
+func transformLibXSLT(chIn <-chan Item, chOut chan<- Item, useMatch bool, stylefile string) {
+	style, err := os.ReadFile(stylefile)
+	x(err)
+	xs, err := xslt.NewStylesheet(style)
+	x(err)
+
+	for item := range chIn {
+		matchdata := item.match
+		for i := 0; ; i++ {
+			if useMatch {
+				if i >= len(matchdata) {
+					break
+				}
+			} else if i > 0 {
+				break
+			}
+
+			if !item.transformed {
+				item.transformed = true
+				item.name += ".t"
+			}
+
+			params := []xslt.Parameter{
+				xslt.Parameter(xslt.StringParameter{Name: "filename", Value: item.oriname}),
+				xslt.Parameter(xslt.StringParameter{Name: "corpusname", Value: item.arch}),
+			}
+			params = append(params, xsltVariables...)
+
+			var result []byte
+			if useMatch {
+				result, err = xs.Transform([]byte(matchdata[i]), params...)
+			} else {
+				result, err = xs.Transform([]byte(item.data), params...)
+			}
+			x(err)
+
+			item.data = string(result)
+			item.match = []string{item.data}
+			if len(item.data) > 0 {
+				chOut <- item
+			}
+		}
 	}
 	close(chOut)
 }
@@ -826,4 +886,71 @@ func mustNotExist(filename string) {
 	if err == nil {
 		x(fmt.Errorf("File exists: %s", filename))
 	}
+}
+
+func expandMacros(s string) string {
+	if macrofile == "" {
+		return s
+	}
+
+	if len(macros) == 0 {
+		b, err := os.ReadFile(macrofile)
+		x(err)
+		for _, set := range macroRE.FindAllStringSubmatch(macroCOM.ReplaceAllLiteralString(string(b), ""), -1) {
+			s := strings.Replace(set[2], "\r\n", "\n", -1)
+			s = strings.Replace(s, "\n\r", "\n", -1)
+			s = strings.Replace(s, "\r", "\n", -1)
+			macros["%"+set[1]+"%"] = untabify(s)
+		}
+	}
+
+	if showExpansion {
+		fmt.Println(strings.Repeat("=", 72))
+	}
+	original := s
+	for i := 0; ; i++ {
+		if i == 100 || len(s) > 65535 {
+			fmt.Fprintf(os.Stderr, "Recursion too deep in:", original)
+			os.Exit(1)
+		}
+		if showExpansion {
+			fmt.Printf("%d: %s\n", i, s)
+			fmt.Println(strings.Repeat("-", 72))
+		}
+		s2 := macroKY.ReplaceAllStringFunc(s, func(match string) string {
+			r, ok := macros[match]
+			if !ok {
+				fmt.Fprintln(os.Stderr, "Undefined macro:", match)
+				os.Exit(1)
+			}
+			return r
+		})
+		if s == s2 {
+			break
+		}
+		s = s2
+	}
+
+	return s
+}
+
+func untabify(s string) string {
+	var b bytes.Buffer
+	i := 0
+	for _, chr := range s {
+		i++
+		if chr == '\n' {
+			i = 0
+			b.WriteRune('\n')
+		} else if chr == '\t' {
+			b.WriteRune(' ')
+			for (i % 8) != 0 {
+				i++
+				b.WriteRune(' ')
+			}
+		} else {
+			b.WriteRune(chr)
+		}
+	}
+	return b.String()
 }

@@ -1,35 +1,28 @@
 ## Voorbeelden:
 
-alto - "fp://node[@root='fiets']" "fp://conllu[@status='OK']/text()" "tt:%f%m\n" /my/corpora/paqu/cdb.dact
+```
+alto "fp://node[@root='fiets']" "fp://conllu[@status='OK']/text()" "tt:%f%m\n" /my/corpora/paqu/cdb.dact
 
-alto - "fp://node[node[@root='fiets']]" "tt:%c:%f\n%S\n%M\n" /my/corpora/paqu/cdb.dact
+alto "fp://node[node[@root='fiets']]" "tt:%c:%f\n%S\n%M\n" /my/corpora/paqu/cdb.dact
 
-alto - "fp://node[@cat='mwu']" "tq:mwu.xq" "ac:" /my/corpora/paqu/cdb.dact
-alto - "fp://node[@cat='mwu']" "Tq:mwu.xq" "ac:" /my/corpora/paqu/cdb.dact
+alto "fp://node[@cat='mwu']" "tq:mwu.xq" "ac:" /my/corpora/paqu/cdb.dact
+alto "fp://node[@cat='mwu']" "Tq:mwu.xq" "ac:" /my/corpora/paqu/cdb.dact
+```
 
+## xslt
 
-## doTemplate
+`dt2clig1.xsl` werkt niet met xqilla. Het werkt wel met `libxslt` als je
+deze test (komt 2 keer voor)...
 
-| flag | output |
-|----|----|
-| `%%` | `%` |
-| `%c` | corpusname |
-| `%f` | filename |
-| `%b` | file body |
-| `%i` | *id* |
-| `%I` | sentid |
-| `%s` | sentence
-| `%S` | *sentence marked* |
-| `%m` | *match* |
-| `%M` | *match tree* |
-| `%w` | *match, words only* |
-| `%d` | metadata |
-| `\n` | newline |
-| `\t` | tab |
+```
+<xsl:if test="$extended-attributes">
+```
 
-*cursief* → voor elke match
+... verandert in:
 
-
+```
+<xsl:if test="$extended-attributes=1">
+```
 
 ## gotchas
 

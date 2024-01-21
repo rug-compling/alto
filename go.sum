@@ -8,3 +8,5 @@ github.com/rug-compling/alpinods v1.16.2 h1:fsbjU4hy6o6GSPlBIuCR3m5zZUtHsk95HMm2
 github.com/rug-compling/alpinods v1.16.2/go.mod h1:R3BBX8RIw9InVqHZ+1W+MsX8WX8uBkoVNNGE38mqF1Q=
 github.com/rug-compling/alud/v2 v2.13.0 h1:3ZFISvs4ssaA1L/N8VlB8bpQVHPIbd+iD0pSxCwxlfY=
 github.com/rug-compling/alud/v2 v2.13.0/go.mod h1:ayWwNfOc9Rd7HNIBpJtffuhDHxt+VFxgfG1RtZ6569g=
+github.com/wamuir/go-xslt v0.1.5 h1:FmO1SD7PpoJtHOfnXcb6R/+NANYHX8+mz0UogNJuPnk=
+github.com/wamuir/go-xslt v0.1.5/go.mod h1:4TQnJGYG4FeeVIgAnV4tyr5pyZQOpxfEZv6Uby/qikU=
