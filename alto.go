@@ -1,6 +1,5 @@
 package main
 
-// TODO: filter by filename
 // TODO: documentatie
 // TODO: code opschonen, documenteren, opsplitsen over bestanden
 
