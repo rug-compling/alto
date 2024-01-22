@@ -58,6 +58,7 @@ var (
 	cFILENAME   = C.CString("filename")
 
 	verbose       = true
+	xmlfiles      []string
 	macrofile     = ""
 	showExpansion = false
 	replace       = false
@@ -103,7 +104,8 @@ Actions:
     ud:add          : insert Universal Dependencies
     ud:rm           : remove Universal Dependencies
 
-    ff:{filename}   : filter by filename (dact, compact, zip)
+    ff:{filename1,filename2,...}
+                    : filter by {filename(s)} (dact, compact, zip)
     fp:{expression} : filter by %s {expression}
 
     tq:{xqueryfile} : transform with %s {xqueryfile}
@@ -266,6 +268,12 @@ func main() {
 			chOut := make(chan Item, 100)
 			go undoUD(chIn, chOut)
 			chIn = chOut
+		} else if act == "ff" {
+			if i != 0 {
+				fmt.Fprintln(os.Stderr, "Filter ff should be the first action")
+				return
+			}
+			xmlfiles = strings.Split(arg, ",")
 		} else if act == "fp" {
 			arg = expandMacros(arg)
 			if i == 0 {
@@ -698,6 +706,27 @@ func readCompact(chOut chan<- Item, infile string, i, n int) {
 		return
 	}
 	compactSeen[infile] = true
+
+	if xmlfiles != nil {
+		corpus, err := compactcorpus.RaOpen(infile)
+		x(err)
+		for _, xmlfile := range xmlfiles {
+			if xmlfile != "" {
+				data, err := corpus.Get(xmlfile)
+				x(err)
+				chOut <- Item{
+					arch:    infile + ".data.dz",
+					name:    xmlfile,
+					oriname: xmlfile,
+					data:    string(data),
+					match:   make([]string, 0),
+				}
+			}
+		}
+		corpus.Close()
+		return
+	}
+
 	corpus, err := compactcorpus.Open(infile)
 	x(err)
 	r, err := corpus.NewRange()
@@ -725,6 +754,24 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 	db, err := dbxml.OpenRead(infile)
 	x(err)
 	defer db.Close()
+
+	if xmlfiles != nil {
+		for _, xmlfile := range xmlfiles {
+			if xmlfile != "" {
+				data, err := db.Get(xmlfile)
+				x(err)
+				chOut <- Item{
+					arch:    infile,
+					name:    xmlfile,
+					oriname: xmlfile,
+					data:    data,
+					match:   make([]string, 0),
+				}
+			}
+		}
+		return
+	}
+
 	if filter == "" {
 		size, err := db.Size()
 		x(err)
@@ -795,6 +842,27 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 func readZip(chOut chan<- Item, infile string, i, n int) {
 	zr, err := zip.OpenReader(infile)
 	x(err)
+
+	if xmlfiles != nil {
+		for _, xmlfile := range xmlfiles {
+			if xmlfile != "" {
+				fp, err := zr.Open(xmlfile)
+				x(err)
+				data, err := io.ReadAll(fp)
+				x(err)
+				fp.Close()
+				chOut <- Item{
+					arch:    infile,
+					name:    xmlfile,
+					oriname: xmlfile,
+					data:    string(data),
+					match:   make([]string, 0),
+				}
+			}
+		}
+		return
+	}
+
 	for j, file := range zr.File {
 		if file.FileInfo().IsDir() {
 			continue
@@ -818,6 +886,11 @@ func readZip(chOut chan<- Item, infile string, i, n int) {
 }
 
 func readXml(chOut chan<- Item, infile string, i, n int) {
+	if xmlfiles != nil {
+		fmt.Fprintln(os.Stderr, "Filter 'ff' makes sense only for corpus in dact, compact, or zip format")
+		os.Exit(1)
+	}
+
 	if verbose {
 		fmt.Fprintf(os.Stderr, " %d/%d %s        \r", i, n, infile)
 	}
@@ -833,6 +906,11 @@ func readXml(chOut chan<- Item, infile string, i, n int) {
 }
 
 func readDir(chOut chan<- Item, indir, subdir string, i, n int, firstfilter string) {
+	if xmlfiles != nil {
+		fmt.Fprintln(os.Stderr, "Filter 'ff' makes sense only for corpus in dact, compact, or zip format")
+		os.Exit(1)
+	}
+
 	dirname := indir
 	if subdir != "" {
 		dirname = filepath.Join(indir, subdir)
