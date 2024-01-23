@@ -61,6 +61,8 @@ var (
 	macrofile     = ""
 	showExpansion = false
 	replace       = false
+	markMatch     = false
+	readStdin     = false
 	fulltext      = 0
 	libxslt       = false
 	variables     = []*C.char{
@@ -86,7 +88,9 @@ Options:
 
     -e              : show macro-expansion
     -f              : use fulltext extension
+    -i              : read input filenames from stdin
     -m filename     : use this macrofile for xpath
+    -n              : mark matching node
     -o filename     : output
     -r              : replace xml in existing dact file
     -v name=value   : set global variable
@@ -178,14 +182,6 @@ func main() {
 	inputfiles := make([]string, 0)
 	actions := make([]string, 0)
 
-	if !util.IsTerminal(os.Stdin) {
-		scanner := bufio.NewScanner(os.Stdin)
-		for scanner.Scan() {
-			inputfiles = append(inputfiles, scanner.Text())
-		}
-		x(scanner.Err())
-	}
-
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
 		if strings.HasPrefix(arg, "-") {
@@ -197,6 +193,8 @@ func main() {
 			case "-h":
 				usage()
 				return
+			case "-i":
+				readStdin = true
 			case "-m":
 				i++
 				if i == len(os.Args) {
@@ -204,6 +202,8 @@ func main() {
 					return
 				}
 				macrofile = os.Args[i]
+			case "-n":
+				markMatch = true
 			case "-o":
 				i++
 				if i == len(os.Args) {
@@ -244,6 +244,14 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Option -r only valid for output to dact")
 			return
 		}
+	}
+
+	if readStdin {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			inputfiles = append(inputfiles, scanner.Text())
+		}
+		x(scanner.Err())
 	}
 
 	if len(inputfiles) == 0 {
@@ -467,12 +475,49 @@ func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
 				}
 			}
 			if len(item.match) > 0 {
+				if markMatch {
+					var alpino alpinods.AlpinoDS
+					x(xml.Unmarshal([]byte(item.data), &alpino))
+					markMatchingNode(alpino.Node, item.match...)
+					item.data = alpino.String()
+					item.original = false
+				}
 				chOut <- item
 			}
 		}
 		C.xq_free(result)
 	}
 	close(chOut)
+}
+
+func markMatchingNode(node *alpinods.Node, matches ...string) {
+	var f func(*alpinods.Node, int) bool
+	f = func(n *alpinods.Node, id int) bool {
+		if n.ID == id {
+			if n.Data == nil {
+				n.Data = make([]*alpinods.Data, 0)
+			}
+			n.Data = append(n.Data, &alpinods.Data{
+				Name: "match",
+			})
+			return true
+		}
+		if n.Node != nil {
+			for _, n2 := range n.Node {
+				if f(n2, id) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	for _, match := range matches {
+		var matchNode alpinods.Node
+		if xml.Unmarshal([]byte(match), &matchNode) == nil {
+			f(node, matchNode.ID)
+		}
+	}
 }
 
 func transformLibXSLT(chIn <-chan Item, chOut chan<- Item, useMatch bool, stylefile string) {
@@ -807,6 +852,12 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 			if name != newname {
 				j++
 				if content != "" {
+					if markMatch {
+						var alpino alpinods.AlpinoDS
+						x(xml.Unmarshal([]byte(content), &alpino))
+						markMatchingNode(alpino.Node, match...)
+						content = alpino.String()
+					}
 					chOut <- Item{
 						arch:       infile,
 						name:       name,
@@ -826,6 +877,12 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 			}
 		}
 		if content != "" {
+			if markMatch {
+				var alpino alpinods.AlpinoDS
+				x(xml.Unmarshal([]byte(content), &alpino))
+				markMatchingNode(alpino.Node, match...)
+				content = alpino.String()
+			}
 			chOut <- Item{
 				arch:       infile,
 				name:       name,
