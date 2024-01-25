@@ -1,7 +1,3 @@
-in*
-out*
-*.data.dz
-*.index
-*.xsl
 alto
 alto_v6
+tmp
