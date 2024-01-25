@@ -497,6 +497,11 @@ func filterXpath2(chIn <-chan Item, chOut chan<- Item, xpath string) {
 	cxpath := C.CString(xpath)
 	vars := make([]*C.char, 1)
 
+	xq := C.xq_setup(cxpath, C.langXPATH, 0, &(vars[0]))
+	if C.xq_setup_error(xq) != 0 {
+		os.Exit(1)
+	}
+
 	for item := range chIn {
 		if item.skipfilter {
 			// eerste filter is toegepast bij lezen vanuit dbxml-bestand
@@ -519,7 +524,7 @@ func filterXpath2(chIn <-chan Item, chOut chan<- Item, xpath string) {
 			cs = C.CString(filename)
 		}
 
-		result := C.xq_call(cs, cxpath, C.langXPATH, cDEVIDER, 0, &(vars[0]))
+		result := C.xq_call(xq, cs, cDEVIDER, 0, &(vars[0]))
 
 		C.free(unsafe.Pointer(cs))
 		if !item.original {
@@ -632,6 +637,20 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 	x(err)
 	style := C.CString(string(b))
 
+	vars := make([]*C.char, 1)
+	n := len(variables) / 2
+	if n > 0 {
+		vars = variables
+	}
+	xq := C.xq_setup(style, lang, C.int(n), &(vars[0]))
+	if C.xq_setup_error(xq) != 0 {
+		os.Exit(1)
+	}
+
+	vars = make([]*C.char, 4)
+	vars[0] = C.CString("filename")
+	vars[2] = C.CString("corpusname")
+
 	for item := range chIn {
 		matchdata := item.match
 		for i := 0; ; i++ {
@@ -643,8 +662,8 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 				break
 			}
 
-			variables[1] = C.CString(item.oriname)
-			variables[3] = C.CString(item.arch)
+			vars[1] = C.CString(item.oriname)
+			vars[3] = C.CString(item.arch)
 
 			if !item.transformed {
 				item.transformed = true
@@ -669,11 +688,14 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 				cs = C.CString(filename)
 			}
 
-			result := C.xq_call(cs, style, lang, cEMPTY, C.int(len(variables)/2), &(variables[0]))
+			result := C.xq_call(xq, cs, cEMPTY, C.int(2), &(vars[0]))
+			if C.xq_error(result) != 0 {
+				os.Exit(1)
+			}
 
 			C.free(unsafe.Pointer(cs))
-			C.free(unsafe.Pointer(variables[1]))
-			C.free(unsafe.Pointer(variables[3]))
+			C.free(unsafe.Pointer(vars[1]))
+			C.free(unsafe.Pointer(vars[3]))
 			if useMatch {
 				item.original = false
 				os.Remove(filename)
