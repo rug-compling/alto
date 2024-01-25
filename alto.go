@@ -25,6 +25,8 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/jbowtie/gokogiri"
+	"github.com/jbowtie/gokogiri/xpath"
 	"github.com/pebbe/compactcorpus"
 	"github.com/pebbe/dbxml"
 	"github.com/pebbe/util"
@@ -63,8 +65,7 @@ var (
 	replace       = false
 	markMatch     = false
 	readStdin     = false
-	fulltext      = 0
-	libxslt       = false
+	version2      = false
 	variables     = []*C.char{
 		C.CString("filename"),
 		cEMPTY,
@@ -87,14 +88,13 @@ Usage: %s [(option | action | filename) ...]
 Options:
 
     -e              : show macro-expansion
-    -f              : use fulltext extension
     -i              : read input filenames from stdin
     -m filename     : use this macrofile for xpath
     -n              : mark matching node
     -o filename     : output
     -r              : replace xml in existing dact file
     -v name=value   : set global variable
-    -x              : use libxslt instead of xqilla for xslt
+    -2              : use XPath2 and XSLT2 (slow)
 
 You can also set the macrofile with the environment variable ALTO_MACROFILE
 The option -m has precendence
@@ -109,10 +109,11 @@ Actions:
 
     ff:{filename1,filename2,...}
                     : filter by {filename(s)} (dact, compact, zip)
-    fp:{expression} : filter by %s {expression}
+    fp:{expression} : filter by XPath {expression}
+    fp:null         : prevent using filter when reading dact-file
 
-    tq:{xqueryfile} : transform with %s {xqueryfile}
-    ts:{stylefile}  : transform with %s {stylefile}
+    tq:{xqueryfile} : transform with XQuery {xqueryfile}
+    ts:{stylefile}  : transform with XSLT {stylefile}
     tt:{template}   : transform with {template}
 
     Tq:{xqueryfile} : like tq, match data as input
@@ -120,6 +121,8 @@ Actions:
 
     ac:sum          : aggregated match count
     ac:rel          : aggregated relative match count
+    Ac:sum          : aggregated match line count
+    Ac:rel          : aggregated relative match line count
 
 
 Template placeholders:
@@ -163,9 +166,6 @@ Default output is stdout
 
 `,
 		os.Args[0],
-		C.GoString(C.xq_xpath_version()),
-		C.GoString(C.xq_xquery_version()),
-		C.GoString(C.xq_xslt_version()),
 		os.Args[0],
 		os.Args[0],
 		os.Args[0])
@@ -188,8 +188,6 @@ func main() {
 			switch arg {
 			case "-e":
 				showExpansion = true
-			case "-f":
-				fulltext = 1
 			case "-h":
 				usage()
 				return
@@ -226,8 +224,8 @@ func main() {
 				}
 				variables = append(variables, C.CString(a[0]), C.CString(a[1]))
 				xsltVariables = append(xsltVariables, xslt.Parameter(xslt.StringParameter{Name: a[0], Value: a[1]}))
-			case "-x":
-				libxslt = true
+			case "-2":
+				version2 = true
 			default:
 				fmt.Fprintln(os.Stderr, "Unknown option", arg)
 				return
@@ -282,12 +280,19 @@ func main() {
 			}
 			xmlfiles = strings.Split(arg, ",")
 		} else if act == "fp" {
+			if arg == "null" {
+				continue
+			}
 			arg = expandMacros(arg)
 			if i == 0 {
 				firstFilter = arg
 			}
 			chOut := make(chan Item, 100)
-			go filterXpath(chIn, chOut, arg)
+			if version2 {
+				go filterXpath2(chIn, chOut, arg)
+			} else {
+				go filterXpath(chIn, chOut, arg)
+			}
 			chIn = chOut
 		} else if act == "tq" || act == "ts" || act == "Tq" || act == "Ts" {
 			var lang C.Language
@@ -298,7 +303,7 @@ func main() {
 				lang = C.langXSLT
 			}
 			chOut := make(chan Item, 100)
-			if act[1] == 's' && libxslt {
+			if act[1] == 's' && !version2 {
 				go transformLibXSLT(chIn, chOut, act[0] == 'T', arg)
 			} else {
 				go transformStylesheet(chIn, chOut, lang, act[0] == 'T', arg)
@@ -308,9 +313,9 @@ func main() {
 			chOut := make(chan Item, 100)
 			go transformTemplate(chIn, chOut, arg)
 			chIn = chOut
-		} else if act == "ac" {
+		} else if act == "ac" || act == "Ac" {
 			chOut := make(chan Item, 100)
-			go aggregateCount(chIn, chOut, strings.HasPrefix(arg, "rel"))
+			go aggregateCount(chIn, chOut, strings.HasPrefix(arg, "rel"), act[0] == 'A')
 			chIn = chOut
 		} else {
 			fmt.Fprintf(os.Stderr, "Unknown action %q\n", action)
@@ -357,17 +362,28 @@ func main() {
 	}
 }
 
-func aggregateCount(chIn <-chan Item, chOut chan<- Item, relative bool) {
+func aggregateCount(chIn <-chan Item, chOut chan<- Item, relative bool, byline bool) {
 	var sum int
 	count := make(map[string]int)
 	for item := range chIn {
 		for _, m := range item.match {
-			m = strings.TrimSpace(m)
-			if _, ok := count[m]; !ok {
-				count[m] = 0
+			if byline {
+				for _, ml := range strings.Split(m, "\n") {
+					ml = strings.TrimSpace(ml)
+					if _, ok := count[ml]; !ok {
+						count[ml] = 0
+					}
+					count[ml]++
+					sum++
+				}
+			} else {
+				m = strings.TrimSpace(m)
+				if _, ok := count[m]; !ok {
+					count[m] = 0
+				}
+				count[m]++
+				sum++
 			}
-			count[m]++
-			sum++
 		}
 	}
 	keys := make([]string, 0, len(count))
@@ -376,9 +392,10 @@ func aggregateCount(chIn <-chan Item, chOut chan<- Item, relative bool) {
 	}
 	sort.Strings(keys)
 	lines := make([]string, len(keys))
+	fsum := float64(sum)
 	for i, key := range keys {
 		if relative {
-			lines[i] = fmt.Sprintf("%8.4f  %s", float64(count[key])/float64(sum), key)
+			lines[i] = fmt.Sprintf("%8.4f  %s", float64(count[key])/fsum, key)
 		} else {
 			lines[i] = fmt.Sprintf("%8d  %s", count[key], key)
 		}
@@ -432,7 +449,49 @@ func undoUD(chIn <-chan Item, chOut chan<- Item) {
 	close(chOut)
 }
 
-func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
+func filterXpath(chIn <-chan Item, chOut chan<- Item, xp string) {
+	var expr *xpath.Expression
+
+	for item := range chIn {
+		if item.skipfilter {
+			// eerste filter is toegepast bij lezen vanuit dbxml-bestand
+			item.skipfilter = false
+			chOut <- item
+			continue
+		}
+
+		if expr == nil {
+			expr = xpath.Compile(xp)
+			if expr == nil {
+				os.Exit(1)
+			}
+		}
+
+		doc, err := gokogiri.ParseXml([]byte(item.data))
+		x(err)
+		root := doc.Root()
+		matches, err := root.Search(expr)
+		x(err)
+		if len(matches) > 0 {
+			item.match = item.match[0:0]
+			for _, match := range matches {
+				item.match = append(item.match, match.String())
+			}
+			if markMatch {
+				var alpino alpinods.AlpinoDS
+				x(xml.Unmarshal([]byte(item.data), &alpino))
+				markMatchingNode(alpino.Node, item.match...)
+				item.data = alpino.String()
+				item.original = false
+			}
+			chOut <- item
+		}
+		doc.Free()
+	}
+	close(chOut)
+}
+
+func filterXpath2(chIn <-chan Item, chOut chan<- Item, xpath string) {
 	// runtime.LockOSThread()
 
 	cxpath := C.CString(xpath)
@@ -460,7 +519,7 @@ func filterXpath(chIn <-chan Item, chOut chan<- Item, xpath string) {
 			cs = C.CString(filename)
 		}
 
-		result := C.xq_call(cs, cxpath, C.langXPATH, C.int(fulltext), cDEVIDER, 0, &(vars[0]))
+		result := C.xq_call(cs, cxpath, C.langXPATH, cDEVIDER, 0, &(vars[0]))
 
 		C.free(unsafe.Pointer(cs))
 		if !item.original {
@@ -610,7 +669,7 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 				cs = C.CString(filename)
 			}
 
-			result := C.xq_call(cs, style, lang, C.int(fulltext), cEMPTY, C.int(len(variables)/2), &(variables[0]))
+			result := C.xq_call(cs, style, lang, cEMPTY, C.int(len(variables)/2), &(variables[0]))
 
 			C.free(unsafe.Pointer(cs))
 			C.free(unsafe.Pointer(variables[1]))
@@ -641,11 +700,8 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 
 func writeCompact(chIn <-chan Item, outfile string) {
 	seen := make(map[string]bool)
-	if strings.HasSuffix(outfile, ".data.dz") {
-		outfile = outfile[:len(outfile)-8]
-	} else if strings.HasSuffix(outfile, ".index") {
-		outfile = outfile[:len(outfile)-6]
-	}
+	outfile = strings.TrimSuffix(outfile, ".data.gz")
+	outfile = strings.TrimSuffix(outfile, ".index")
 	mustNotExist(outfile + ".data.dz")
 	mustNotExist(outfile + ".index")
 	corpus, err := compactcorpus.NewCorpus(outfile)
@@ -701,7 +757,8 @@ func writeTxt(chIn <-chan Item, outfile string) {
 		_, err := fp.WriteString(item.data)
 		x(err)
 		if !strings.HasSuffix(item.data, "\n") {
-			fp.WriteString("\n")
+			_, err := fp.WriteString("\n")
+			x(err)
 		}
 	}
 	x(fp.Close())
@@ -741,11 +798,8 @@ func writeDir(chIn <-chan Item, outdir string) {
 }
 
 func readCompact(chOut chan<- Item, infile string, i, n int) {
-	if strings.HasSuffix(infile, ".data.dz") {
-		infile = infile[:len(infile)-8]
-	} else if strings.HasSuffix(infile, ".index") {
-		infile = infile[:len(infile)-6]
-	}
+	infile = strings.TrimSuffix(infile, ".data.dz")
+	infile = strings.TrimSuffix(infile, ".index")
 	if compactSeen[infile] {
 		return
 	}
@@ -1044,7 +1098,7 @@ func expandMacros(s string) string {
 	original := s
 	for i := 0; ; i++ {
 		if i == 100 || len(s) > 65535 {
-			fmt.Fprintf(os.Stderr, "Recursion too deep in:", original)
+			fmt.Fprintln(os.Stderr, "Macro recursion too deep in:", original)
 			os.Exit(1)
 		}
 		if showExpansion {

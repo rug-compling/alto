@@ -1,3 +1,6 @@
+github.com/jbowtie/gokogiri v0.0.0-20190301021639-37f655d3078f h1:6UIvzqlGM38lOpKP380Wbl0kUyyjutcc7KJUaDM/U4o=
+github.com/jbowtie/gokogiri v0.0.0-20190301021639-37f655d3078f/go.mod h1:C3R3VzPq+DAwilxue7DiV6F2QL1rrQX0L56GyI+sBxM=
+github.com/pebbe/compactcorpus v1.0.1/go.mod h1:SSpTeCZataCjjs82RJb8SOGdjkB3PlR7Z19EY4rInoQ=
 github.com/pebbe/compactcorpus v1.0.2 h1:1e3xN1WkVdmyJnXV8lig8vm/InKxJMbjK1gW+yTUnEM=
 github.com/pebbe/compactcorpus v1.0.2/go.mod h1:SSpTeCZataCjjs82RJb8SOGdjkB3PlR7Z19EY4rInoQ=
 github.com/pebbe/dbxml v1.3.1 h1:36vm7gj4e4rYic6TaHT3MCt9EjaIJPqSjJGARSAjjxc=

@@ -10,3 +10,5 @@ require (
 	github.com/rug-compling/alud/v2 v2.13.0
 	github.com/wamuir/go-xslt v0.1.5
 )
+
+require github.com/jbowtie/gokogiri v0.0.0-20190301021639-37f655d3078f

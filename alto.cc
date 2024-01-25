@@ -3,29 +3,6 @@
 #include <xqilla/exceptions/XQException.hpp>
 #include <xqilla/xqilla-simple.hpp>
 
-#include <db.h>
-#ifdef DB_VERSION_FAMILY
-#define XPATH XQilla::XPATH3
-#define XQUERY XQilla::XQUERY3
-#define XSLT XQilla::XSLT3
-#define XPATH_FULLTEXT XQilla::XPATH3_FULLTEXT
-#define XQUERY_FULLTEXT XQilla::XQUERY3_FULLTEXT
-#define XSLT_FULLTEXT XQilla::XSLT3_FULLTEXT
-#define XPATH_VERSION "XPath3"
-#define XQUERY_VERSION "XQuery3"
-#define XSLT_VERSION "XSLT3"
-#else
-#define XPATH XQilla::XPATH2
-#define XQUERY XQilla::XQUERY
-#define XSLT XQilla::XSLT2
-#define XPATH_FULLTEXT XQilla::XPATH2_FULLTEXT
-#define XQUERY_FULLTEXT XQilla::XQUERY_FULLTEXT
-#define XSLT_FULLTEXT XQilla::XSLT2_FULLTEXT
-#define XPATH_VERSION "XPath2"
-#define XQUERY_VERSION "XQuery"
-#define XSLT_VERSION "XSLT2"
-#endif
-
 extern "C"
 {
     XQilla xqilla;
@@ -35,19 +12,6 @@ extern "C"
         std::string text;
         int error;
     };
-
-    char const *xq_xpath_version()
-    {
-        return XPATH_VERSION;
-    }
-    char const *xq_xquery_version()
-    {
-        return XQUERY_VERSION;
-    }
-    char const *xq_xslt_version()
-    {
-        return XSLT_VERSION;
-    }
 
     void xq_free(c_xqilla_result xq)
     {
@@ -64,8 +28,8 @@ extern "C"
         return xq->text.c_str();
     }
 
-    c_xqilla_result xq_call(char const *xmlfile, char const *query, Language language, int fulltext, char const *suffix,
-                            int nvars, char const **vars)
+    c_xqilla_result xq_call(char const *xmlfile, char const *query, Language language, char const *suffix, int nvars,
+                            char const **vars)
     {
         c_xqilla_result xqr = new c_xqilla_result_t;
         xqr->text = "";
@@ -75,13 +39,13 @@ extern "C"
         switch (language)
         {
         case langXPATH:
-            lang = fulltext ? XPATH_FULLTEXT : XPATH;
+            lang = XQilla::XPATH2;
             break;
         case langXQUERY:
-            lang = fulltext ? XQUERY_FULLTEXT : XQUERY;
+            lang = XQilla::XQUERY;
             break;
         case langXSLT:
-            lang = fulltext ? XSLT_FULLTEXT : XSLT;
+            lang = XQilla::XSLT2;
             break;
         }
 
