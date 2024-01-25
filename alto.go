@@ -302,11 +302,14 @@ func main() {
 			case "ts", "Ts":
 				lang = C.langXSLT
 			}
+			b, err := os.ReadFile(arg)
+			x(err)
+			style := expandMacros(string(b))
 			chOut := make(chan Item, 100)
 			if act[1] == 's' && !version2 {
-				go transformLibXSLT(chIn, chOut, act[0] == 'T', arg)
+				go transformLibXSLT(chIn, chOut, act[0] == 'T', style)
 			} else {
-				go transformStylesheet(chIn, chOut, lang, act[0] == 'T', arg)
+				go transformStylesheet(chIn, chOut, lang, act[0] == 'T', style)
 			}
 			chIn = chOut
 		} else if act == "tt" {
@@ -579,10 +582,8 @@ func markMatchingNode(node *alpinods.Node, matches ...string) {
 	}
 }
 
-func transformLibXSLT(chIn <-chan Item, chOut chan<- Item, useMatch bool, stylefile string) {
-	style, err := os.ReadFile(stylefile)
-	x(err)
-	xs, err := xslt.NewStylesheet(style)
+func transformLibXSLT(chIn <-chan Item, chOut chan<- Item, useMatch bool, style string) {
+	xs, err := xslt.NewStylesheet([]byte(style))
 	x(err)
 
 	for item := range chIn {
@@ -625,12 +626,10 @@ func transformLibXSLT(chIn <-chan Item, chOut chan<- Item, useMatch bool, stylef
 	close(chOut)
 }
 
-func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, useMatch bool, stylefile string) {
+func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, useMatch bool, style string) {
 	// runtime.LockOSThread()
 
-	b, err := os.ReadFile(stylefile)
-	x(err)
-	style := C.CString(string(b))
+	cstyle := C.CString(style)
 
 	for item := range chIn {
 		matchdata := item.match
@@ -669,7 +668,7 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 				cs = C.CString(filename)
 			}
 
-			result := C.xq_call(cs, style, lang, cEMPTY, C.int(len(variables)/2), &(variables[0]))
+			result := C.xq_call(cs, cstyle, lang, cEMPTY, C.int(len(variables)/2), &(variables[0]))
 
 			C.free(unsafe.Pointer(cs))
 			C.free(unsafe.Pointer(variables[1]))
@@ -1140,5 +1139,5 @@ func untabify(s string) string {
 			b.WriteRune(chr)
 		}
 	}
-	return b.String()
+	return strings.TrimSpace(b.String())
 }
