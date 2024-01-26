@@ -65,7 +65,8 @@ var (
 	replace       = false
 	markMatch     = false
 	readStdin     = false
-	version2      = false
+	version2xpath = false
+	version2xslt  = false
 	variables     = []*C.char{
 		C.CString("filename"),
 		cEMPTY,
@@ -95,6 +96,8 @@ Options:
     -r              : replace xml in existing dact file
     -v name=value   : set global variable
     -2              : use XPath2 and XSLT2 (slow)
+    -2p             : use XPath2 (slow)
+    -2s             : use XSLT2 (slow)
 
 You can also set the macrofile with the environment variable ALTO_MACROFILE
 The option -m has precendence
@@ -132,6 +135,7 @@ Template placeholders:
     %%f  filename
     %%b  file body
     %%i  id of matching node
+    %%j  ids of all matching nodes
     %%I  sentence id
     %%s  sentence
     %%S  colored sentence
@@ -225,7 +229,12 @@ func main() {
 				variables = append(variables, C.CString(a[0]), C.CString(a[1]))
 				xsltVariables = append(xsltVariables, xslt.Parameter(xslt.StringParameter{Name: a[0], Value: a[1]}))
 			case "-2":
-				version2 = true
+				version2xpath = true
+				version2xslt = true
+			case "-2p":
+				version2xpath = true
+			case "-2x":
+				version2xslt = true
 			default:
 				fmt.Fprintln(os.Stderr, "Unknown option", arg)
 				return
@@ -288,7 +297,7 @@ func main() {
 				firstFilter = arg
 			}
 			chOut := make(chan Item, 100)
-			if version2 {
+			if version2xpath {
 				go filterXpath2(chIn, chOut, arg)
 			} else {
 				go filterXpath(chIn, chOut, arg)
@@ -306,7 +315,7 @@ func main() {
 			x(err)
 			style := expandMacros(string(b))
 			chOut := make(chan Item, 100)
-			if act[1] == 's' && !version2 {
+			if act[1] == 's' && !version2xslt {
 				go transformLibXSLT(chIn, chOut, act[0] == 'T', style)
 			} else {
 				go transformStylesheet(chIn, chOut, lang, act[0] == 'T', style)

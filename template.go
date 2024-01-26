@@ -16,6 +16,7 @@ type Fields struct {
 	Filename       string
 	Body           string
 	ID             int
+	IDs            string
 	Sentid         string
 	Sentence       string
 	MarkedSentence string
@@ -36,6 +37,7 @@ var (
   %f  filename
   %b  file body
   %i  *id
+  %j  all ids
   %I  sentid
   %s  sentence
   %S  *sentence marked
@@ -46,7 +48,7 @@ var (
 */
 
 func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
-	var needAlpino, needMeta, multi, needID, needMatch, needMarked, needWords, needTree bool
+	var needAlpino, needMeta, multi, needID, needIDs, needMatch, needMarked, needWords, needTree bool
 	format := reBS.ReplaceAllStringFunc(tmpl, func(s string) string {
 		if s == `\n` {
 			return "\n"
@@ -77,6 +79,10 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 			needID = true
 			multi = true
 			return "{{.ID" + toD
+		case 'j':
+			needAlpino = true
+			needIDs = true
+			return "{{.IDs}}"
 		case 'I':
 			needAlpino = true
 			return "{{.Sentid" + toS
@@ -111,6 +117,9 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 		}
 		return ""
 	})
+	if !strings.HasSuffix(format, "\n") {
+		format += "\n"
+	}
 	myTemplate, err := template.New("tmpl").Parse(format)
 	x(err)
 
@@ -162,6 +171,15 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 				if needMatch {
 					data.Match = item.match[i]
 				}
+			}
+			if needIDs {
+				idlist := make([]string, 0)
+				for _, match := range item.match {
+					var node alpinods.Node
+					x(xml.Unmarshal([]byte(match), &node))
+					idlist = append(idlist, fmt.Sprint(node.ID))
+				}
+				data.IDs = strings.Join(idlist, " ")
 			}
 
 			x(myTemplate.Execute(&out, data))
