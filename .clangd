@@ -1,3 +1,0 @@
-CompileFlags:
-  Add: [-I/my/opt/dbxml-2/include, -L/my/opt/dbxml-2/lib]
-
