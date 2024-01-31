@@ -65,6 +65,7 @@ var (
 	replace       = false
 	markMatch     = false
 	readStdin     = false
+	version1      = false
 	version2xpath = false
 	version2xslt  = false
 	variables     = []*C.char{
@@ -95,6 +96,7 @@ Options:
     -o filename     : output
     -r              : replace xml in existing dact file
     -v name=value   : set global variable
+    -1              : use XPath version 1 for searching in DACT files
     -2              : use XPath2 and XSLT2 (slow)
     -2p             : use XPath2 (slow)
     -2s             : use XSLT2 (slow)
@@ -113,7 +115,6 @@ Actions:
     ff:{filename1,filename2,...}
                     : filter by {filename(s)} (dact, compact, zip)
     fp:{expression} : filter by XPath {expression}
-    fp:null         : prevent using filter when reading dact-file
 
     tq:{xqueryfile} : transform with XQuery {xqueryfile}
     ts:{stylefile}  : transform with XSLT {stylefile}
@@ -228,6 +229,8 @@ func main() {
 				}
 				variables = append(variables, C.CString(a[0]), C.CString(a[1]))
 				xsltVariables = append(xsltVariables, xslt.Parameter(xslt.StringParameter{Name: a[0], Value: a[1]}))
+			case "-1":
+				version1 = true
 			case "-2":
 				version2xpath = true
 				version2xslt = true
@@ -289,11 +292,8 @@ func main() {
 			}
 			xmlfiles = strings.Split(arg, ",")
 		} else if act == "fp" {
-			if arg == "null" {
-				continue
-			}
 			arg = expandMacros(arg)
-			if i == 0 {
+			if i == 0 && !version1 {
 				firstFilter = arg
 			}
 			chOut := make(chan Item, 100)
