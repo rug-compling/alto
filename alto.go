@@ -109,8 +109,10 @@ The variables "filename" and "corpusname" are set automatically
 
 Actions:
 
-    ud:add          : insert Universal Dependencies
-    ud:rm           : remove Universal Dependencies
+    ds:ud           : insert Universal Dependencies
+    ds:noud         : remove Universal Dependencies
+    ds:extra        : add extra attributes: is_np, is_vorfeld, is_nachfeld
+    ds:minimal      : removes all but essential entities and attributes
 
     ff:{filename1,filename2,...}
                     : filter by {filename(s)} (dact, compact, zip)
@@ -277,13 +279,21 @@ func main() {
 	for i, action := range actions {
 		act := action[:2]
 		arg := action[3:]
-		if action == "ud:add" {
+		if action == "ds:ud" {
 			chOut := make(chan Item, 100)
 			go doUD(chIn, chOut)
 			chIn = chOut
-		} else if action == "ud:rm" {
+		} else if action == "ds:noud" {
 			chOut := make(chan Item, 100)
 			go undoUD(chIn, chOut)
+			chIn = chOut
+		} else if action == "ds:extra" {
+			chOut := make(chan Item, 100)
+			go doExtra(chIn, chOut)
+			chIn = chOut
+		} else if action == "ds:minimal" {
+			chOut := make(chan Item, 100)
+			go doMinimal(chIn, chOut)
 			chIn = chOut
 		} else if act == "ff" {
 			if i != 0 {
@@ -455,6 +465,29 @@ func undoUD(chIn <-chan Item, chOut chan<- Item) {
 		alpino.Root = nil
 		alpino.Conllu = nil
 		item.data = alpino.String()
+		item.original = false
+		chOut <- item
+	}
+	close(chOut)
+}
+
+func doExtra(chIn <-chan Item, chOut chan<- Item) {
+	for item := range chIn {
+		var alpino alpinods.AlpinoDS
+		x(xml.Unmarshal([]byte(item.data), &alpino))
+		alpino.Enhance(alpinods.Fall)
+		item.data = alpino.String()
+		item.original = false
+		chOut <- item
+	}
+	close(chOut)
+}
+
+func doMinimal(chIn <-chan Item, chOut chan<- Item) {
+	for item := range chIn {
+		var alpino alpinods.AlpinoDS
+		x(xml.Unmarshal([]byte(item.data), &alpino))
+		item.data = alpinods.Reduce(&alpino).String()
 		item.original = false
 		chOut <- item
 	}
