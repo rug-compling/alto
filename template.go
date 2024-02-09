@@ -14,6 +14,7 @@ import (
 type Fields struct {
 	Corpusname     string
 	Filename       string
+	CorpusFilename string
 	Body           string
 	ID             int
 	IDs            string
@@ -35,6 +36,7 @@ var (
   %%  %
   %c  corpusname
   %f  filename
+  %F  if corpusname then corpusname::filename else filename
   %b  file body
   %i  *id
   %j  all ids
@@ -72,6 +74,8 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 			return "{{.Corpusname" + toS
 		case 'f':
 			return "{{.Filename" + toS
+		case 'F':
+			return "{{.CorpusFilename" + toS
 		case 'b':
 			return "{{.Body" + toS
 		case 'i':
@@ -136,6 +140,11 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 
 		data.Corpusname = item.arch
 		data.Filename = item.oriname
+		if item.arch == "" {
+			data.CorpusFilename = item.oriname
+		} else {
+			data.CorpusFilename = item.arch + "::" + item.oriname
+		}
 		data.Body = item.data
 		var alpino alpinods.AlpinoDS
 		if needAlpino {

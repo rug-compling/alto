@@ -136,6 +136,7 @@ Template placeholders:
     %%%%  %%
     %%c  corpusname
     %%f  filename
+    %%F  if corpusname then corpusname::filename else filename
     %%b  file body
     %%i  id of matching node
     %%j  ids of all matching nodes
@@ -162,6 +163,8 @@ Valid input filenames:
     *.zip
     directory name
 
+    an input filename can also be in the format corpusfile::xmlfile
+
 Valid output filenames:
     *.dact (or *.dbxml)
     *.data.dz (or *.index)
@@ -170,6 +173,7 @@ Valid output filenames:
     directory name
 
 Default output is stdout
+
 
 `,
 		os.Args[0],
@@ -362,6 +366,11 @@ func main() {
 
 	n := len(inputfiles)
 	for i, infile := range inputfiles {
+		a := strings.Split(infile, "::")
+		if len(a) == 2 {
+			infile = a[0]
+			xmlfiles = []string{a[1]}
+		}
 		infile = filepath.Clean(infile)
 		if strings.HasSuffix(infile, ".data.dz") || strings.HasSuffix(infile, ".index") {
 			readCompact(chStart, infile, i+1, n)
@@ -373,6 +382,9 @@ func main() {
 			readXml(chStart, infile, i+1, n)
 		} else {
 			readDir(chStart, infile, "", i+1, n, firstFilter)
+		}
+		if len(a) == 2 {
+			xmlfiles = []string{}
 		}
 	}
 
