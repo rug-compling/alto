@@ -368,9 +368,9 @@ func main() {
 	n := len(inputfiles)
 	for i, infile := range inputfiles {
 		a := strings.Split(infile, "::")
-		if len(a) == 2 {
+		if len(a) > 1 {
 			infile = a[0]
-			xmlfiles = []string{a[1]}
+			xmlfiles = a[1:]
 		}
 		infile = filepath.Clean(infile)
 		if strings.HasSuffix(infile, ".data.dz") || strings.HasSuffix(infile, ".index") {
@@ -384,7 +384,7 @@ func main() {
 		} else {
 			readDir(chStart, infile, "", i+1, n, firstFilter)
 		}
-		if len(a) == 2 {
+		if len(a) > 1 {
 			xmlfiles = []string{}
 		}
 	}
