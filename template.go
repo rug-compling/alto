@@ -21,6 +21,7 @@ type Fields struct {
 	Sentid         string
 	Sentence       string
 	MarkedSentence string
+	Comments       string
 	Match          string
 	Tree           string
 	Words          string
@@ -43,6 +44,7 @@ var (
   %I  sentid
   %s  sentence
   %S  *sentence marked
+  %o  comments
   %m  *match
   %M  *match tree
   %w  *match, words only
@@ -107,6 +109,9 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 			needTree = true
 			multi = true
 			return "{{.Tree" + toS
+		case 'o':
+			needAlpino = true
+			return "{{.Comments" + toS
 		case 'w':
 			needAlpino = true
 			needWords = true
@@ -151,6 +156,9 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 			x(xml.Unmarshal([]byte(item.data), &alpino))
 			data.Sentid = alpino.Sentence.SentID
 			data.Sentence = alpino.Sentence.Sentence
+			if alpino.Comments != nil && alpino.Comments.Comment != nil {
+				data.Comments = strings.Join(alpino.Comments.Comment, "\n\t")
+			}
 			if needMeta && alpino.Metadata != nil && alpino.Metadata.Meta != nil {
 				metas := make([]string, len(alpino.Metadata.Meta))
 				for i, meta := range alpino.Metadata.Meta {

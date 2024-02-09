@@ -143,6 +143,7 @@ Template placeholders:
     %%I  sentence id
     %%s  sentence
     %%S  colored sentence
+    %%o  comments
     %%m  match
     %%M  match as tree
     %%w  match words
