@@ -1,4 +1,4 @@
-.TH ALTO 1 2024-02-13 0.3.0 "toolkit for alpino dependency structures"
+.TH ALTO 1 2024-02-15 v0.3.0 "toolkit for alpino dependency structures"
 .SH NAAM
 alto \- \fBAL\fPpino \fBTO\fPolkit
 .SH SAMENVATTING
@@ -43,7 +43,7 @@ use XPath2 (slow)
 .TP
 \fB-2s\fP
 use XSLT2 (slow)
-.SH ACTTIES
+.SH ACTIES
 .TP
 \fBds:ud\fP
 insert Universal Dependencies
@@ -340,13 +340,52 @@ minus rechts. Een voorbeeld:
 .RE
 .fi
 .SS Aggregeren
+.TP
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@pt="vnw"]/@lemma'\fP \fBac:sum\fP
+Met \fBac:sum\fP tel je varianten. Dit voorbeeld telt alle lemma's die
+een voornaamwoord zijn.
+.TP
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@pt="vnw"]/@lemma'\fP \fBac:rel\fP
+Dit is bijna gelijk aan het vorige voorbeeld, maar met \fBac:rel\fP worden de
+relatieve aantallen gegeven, in plaats van de absolutie aantallen.
+.PP
+Bovenstaande voorbeelden tellen elke match, en elke match bestaat uit
+één regel. Voor de volgende voorbeelden gebruiken we een transformatie
+met XQuery uit het bestand \fImwu.xq\fP met deze inhoud:
 
-TO DO
+.nf
+.RS
+for $x in //node[@cat='mwu']
+return fn:concat(fn:string-join($x//node[@word]/@word, ' '), '&#10;')
+.RE
+.fi
 
+.TP
+\fBalto \fIcorpus.dact\fP \fBfp:\fP'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP
+Dit geeft een lijst met alle multi-word units in het corpus. Sommige
+XML-bestanden bevatten meerdere multi-word units, en die worden onder
+elkaar weergegeven. In dit voorbeeld valt dat niet op.
+.TP
+\fBalto \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP \fBac:sum\fP
+Wanneer je gaat tellen zul je zien dat sommige items uit meerdere
+regels, en ook die items worden als geheel geteld.
+.TP
+\fBalto \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP \fBAc:sum\fP
+Als je telt met \fBAc:sum\fP dan wordt elk item gesplitst in regels, en de regels worden apart
+geteld. Dat is wat je in dit voorbeeld waarschijnlijk wilt.
+.TP
+\fBalto \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP \fBAc:rel\fP
+Met \fBAc:rel\fP bereken je de relatieve aantallen van items nadat ze
+zijn opgesplitst in regels.
 .SH ENVIRONMENT
-
-TO DO
-
+.TP
+\fBALTO_MACROFILE\fP
+Bevat de naam van het bestand met macrodefinities. Genegeerd als de
+optie \fB-m\fP gebruikt wordt.
+Voor het gebruik van macro's, zie:
+.nf
+https://rug-compling.github.io/dact/manual/#macros
+.fi
 .SH AUTEUR
 Peter Kleiweg
 .SH BUGS

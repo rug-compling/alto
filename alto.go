@@ -389,6 +389,7 @@ func aggregateCount(chIn <-chan Item, chOut chan<- Item, relative bool, byline b
 	count := make(map[string]int)
 	for item := range chIn {
 		for _, m := range item.match {
+			m = strings.TrimSpace(m)
 			if byline {
 				for _, ml := range strings.Split(m, "\n") {
 					ml = strings.TrimSpace(ml)
@@ -399,7 +400,6 @@ func aggregateCount(chIn <-chan Item, chOut chan<- Item, relative bool, byline b
 					sum++
 				}
 			} else {
-				m = strings.TrimSpace(m)
 				if _, ok := count[m]; !ok {
 					count[m] = 0
 				}
