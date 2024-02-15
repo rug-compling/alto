@@ -118,10 +118,11 @@ Actions:
     Tq:{xqueryfile} : like tq, match data as input
     Ts:{stylefile}  : like ts, match data as input
 
-    ac:sum          : aggregated match count
-    ac:rel          : aggregated relative match count
-    Ac:sum          : aggregated match line count
-    Ac:rel          : aggregated relative match line count
+    ac:item         : item count
+    ac:line         : line count
+    ac:node         : count of cat, pos, postag, rel
+    ac:word         : count of lemma, root, sense, word
+    ac:nw           : combination of ac:node and ac:word
 
 Template placeholders:
 
@@ -331,9 +332,16 @@ func main() {
 			chOut := make(chan Item, 100)
 			go transformTemplate(chIn, chOut, arg)
 			chIn = chOut
-		} else if act == "ac" || act == "Ac" {
+		} else if act == "ac" {
 			chOut := make(chan Item, 100)
-			go aggregateCount(chIn, chOut, strings.HasPrefix(arg, "rel"), act[0] == 'A')
+			if arg == "item" || arg == "line" {
+				go aggregateCount(chIn, chOut, arg == "line")
+			} else if arg == "node" || arg == "word" || arg == "nw" {
+				go aggregateAttribs(chIn, chOut, arg == "node" || arg == "nw", arg == "word" || arg == "nw")
+			} else {
+				fmt.Fprintf(os.Stderr, "Unknown action %q\n", action)
+				return
+			}
 			chIn = chOut
 		} else {
 			fmt.Fprintf(os.Stderr, "Unknown action %q\n", action)
@@ -389,7 +397,118 @@ func main() {
 	}
 }
 
-func aggregateCount(chIn <-chan Item, chOut chan<- Item, relative bool, byline bool) {
+func aggregateAttribs(chIn <-chan Item, chOut chan<- Item, doNode, doWord bool) {
+	var cat, pos, postag, rel int
+	var lemma, root, sense, word int
+	cats := make(map[string]int)
+	poss := make(map[string]int)
+	postags := make(map[string]int)
+	rels := make(map[string]int)
+	lemmas := make(map[string]int)
+	roots := make(map[string]int)
+	senses := make(map[string]int)
+	words := make(map[string]int)
+	for item := range chIn {
+		for _, match := range item.match {
+			var node alpinods.Node
+			x(xml.Unmarshal([]byte(match), &node))
+			if doNode {
+				if node.Cat != "" {
+					if _, ok := cats[node.Cat]; !ok {
+						cats[node.Cat] = 0
+					}
+					cats[node.Cat] += 1
+					cat++
+				}
+				if node.Pos != "" {
+					if _, ok := poss[node.Pos]; !ok {
+						poss[node.Pos] = 0
+					}
+					poss[node.Pos] += 1
+					pos++
+				}
+				if node.Postag != "" {
+					if _, ok := postags[node.Postag]; !ok {
+						postags[node.Postag] = 0
+					}
+					postags[node.Postag] += 1
+					postag++
+				}
+				if node.Rel != "" {
+					if _, ok := rels[node.Rel]; !ok {
+						rels[node.Rel] = 0
+					}
+					rels[node.Rel] += 1
+					rel++
+				}
+			}
+			if doWord {
+				if node.Lemma != "" {
+					if _, ok := lemmas[node.Lemma]; !ok {
+						lemmas[node.Lemma] = 0
+					}
+					lemmas[node.Lemma] += 1
+					lemma++
+				}
+				if node.Root != "" {
+					if _, ok := roots[node.Root]; !ok {
+						roots[node.Root] = 0
+					}
+					roots[node.Root] += 1
+					root++
+				}
+				if node.Sense != "" {
+					if _, ok := senses[node.Sense]; !ok {
+						senses[node.Sense] = 0
+					}
+					senses[node.Sense] += 1
+					sense++
+				}
+				if node.Word != "" {
+					if _, ok := words[node.Word]; !ok {
+						words[node.Word] = 0
+					}
+					words[node.Word] += 1
+					word++
+				}
+			}
+		}
+	}
+	var buf bytes.Buffer
+	f := func(label string, sum int, count map[string]int) {
+		fmt.Fprintf(&buf, "%s:\n", label)
+		keys := make([]string, 0, len(count))
+		for key := range count {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		fsum := float64(sum)
+		for _, key := range keys {
+			fmt.Fprintf(&buf, "%8d  %8.4f  %s\n", count[key], float64(count[key])/fsum, key)
+		}
+	}
+	if doNode {
+		f("cat", cat, cats)
+		f("pos", pos, poss)
+		f("postag", postag, postags)
+		f("rel", rel, rels)
+	}
+	if doWord {
+		f("lemma", lemma, lemmas)
+		f("root", root, roots)
+		f("sense", sense, senses)
+		f("word", word, words)
+	}
+	chOut <- Item{
+		name:  "result",
+		data:  buf.String(),
+		match: make([]string, 0),
+	}
+
+	close(chOut)
+}
+
+func aggregateCount(chIn <-chan Item, chOut chan<- Item, byline bool) {
 	var sum int
 	count := make(map[string]int)
 	for item := range chIn {
@@ -421,11 +540,7 @@ func aggregateCount(chIn <-chan Item, chOut chan<- Item, relative bool, byline b
 	lines := make([]string, len(keys))
 	fsum := float64(sum)
 	for i, key := range keys {
-		if relative {
-			lines[i] = fmt.Sprintf("%8.4f  %s", float64(count[key])/fsum, key)
-		} else {
-			lines[i] = fmt.Sprintf("%8d  %s", count[key], key)
-		}
+		lines[i] = fmt.Sprintf("%8d  %8.4f  %s", count[key], float64(count[key])/fsum, key)
 	}
 
 	chOut <- Item{

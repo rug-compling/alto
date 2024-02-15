@@ -75,17 +75,20 @@ like \fBtq\fP, match data as input
 \fBTs:\fP\fIstylefile\fP
 like \fBts\fP, match data as input
 .TP
-\fBac:sum\fP
-aggregated match count
+\fBac:item\fP
+item count
 .TP
-\fBac:rel\fP
-aggregated relative match count
+\fBac:line\fP
+line count
 .TP
-\fBAc:sum\fP
-aggregated match line count
+\fBac:node\fP
+count of cat, pos, postag, rel
 .TP
-\fBAc:rel\fP
-aggregated relative match line count
+\fBac:word\fP
+count of lemma, root, sense, word
+.TP
+\fBac:nw\fP
+combination of \fBac:node\fP and \fBac:word\fP
 .SH GEBRUIK
 De argumenten voor \fBalto\fP bestaan uit opties, acties en
 bestandsnamen. Je kunt deze door elkaar gebruiken. Acties worden
@@ -341,16 +344,12 @@ minus rechts. Een voorbeeld:
 .fi
 .SS Aggregeren
 .TP
-\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@pt="vnw"]/@lemma'\fP \fBac:sum\fP
-Met \fBac:sum\fP tel je varianten. Dit voorbeeld telt alle lemma's die
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@pt="vnw"]/@lemma'\fP \fBac:item\fP
+Met \fBac:item\fP tel je varianten. Dit voorbeeld telt alle lemma's die
 een voornaamwoord zijn.
-.TP
-\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@pt="vnw"]/@lemma'\fP \fBac:rel\fP
-Dit is bijna gelijk aan het vorige voorbeeld, maar met \fBac:rel\fP worden de
-relatieve aantallen gegeven, in plaats van de absolutie aantallen.
 .PP
-Bovenstaande voorbeelden tellen elke match, en elke match bestaat uit
-één regel. Voor de volgende voorbeelden gebruiken we een transformatie
+Bovenstaand voorbeeld telt elke match, en elke match bestaat uit
+één regel. Bij de volgende voorbeelden gebruiken we een transformatie
 met XQuery uit het bestand \fImwu.xq\fP met deze inhoud:
 
 .nf
@@ -366,17 +365,24 @@ Dit geeft een lijst met alle multi-word units in het corpus. Sommige
 XML-bestanden bevatten meerdere multi-word units, en die worden onder
 elkaar weergegeven. In dit voorbeeld valt dat niet op.
 .TP
-\fBalto \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP \fBac:sum\fP
+\fBalto \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP \fBac:item\fP
 Wanneer je gaat tellen zul je zien dat sommige items uit meerdere
-regels, en ook die items worden als geheel geteld.
+regels bestaan, en ook die items worden als geheel geteld.
 .TP
-\fBalto \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP \fBAc:sum\fP
-Als je telt met \fBAc:sum\fP dan wordt elk item gesplitst in regels, en de regels worden apart
+\fBalto \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP \fBac:line\fP
+Als je telt met \fBac:line\fP dan wordt elk item gesplitst in regels, en de regels worden apart
 geteld. Dat is wat je in dit voorbeeld waarschijnlijk wilt.
 .TP
-\fBalto \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP \fBAc:rel\fP
-Met \fBAc:rel\fP bereken je de relatieve aantallen van items nadat ze
-zijn opgesplitst in regels.
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBac:node\fP
+Met \fBac:node\fP tel je de volgende attributen van de matchende node:
+cat, pos, postag, rel
+.TP
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBac:word\fP
+Met \fBac:word\fP tel je de volgende attributen van de matchende node:
+lemma, root, sense, word
+.TP
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBac:nw\fP
+\fBac:nw\fP combineert \fBac:node\fP en \fBac:word\fP.
 .SH ENVIRONMENT
 .TP
 \fBALTO_MACROFILE\fP
