@@ -1,0 +1,356 @@
+.TH ALTO 1 2024-02-13 0.3.0 "toolkit for alpino dependency structures"
+.SH NAAM
+alto \- \fBAL\fPpino \fBTO\fPolkit
+.SH SAMENVATTING
+\fBalto\fP (\fIoptie\fP | \fIactie\fP | \fIbestand\fP) ...
+.SH BESCHRIJVING
+\fBalto\fP is een toolkit voor het werken met bestanden en corpora in het
+formaat zoals dat gebruikt wordt door Alpino. Je kunt losse bestanden
+samenvoegen tot een corpus, je kunt een corpus omzetten naar een ander soort corpus,
+je kunt zoeken, transformeren, etc.
+.SH OPTIES
+.TP
+\fB-e\fP
+show macro-expansion
+.TP
+\fB-i\fP
+read input filenames from stdin
+.TP
+\fB-m\fP \fIfilename\fP
+use this macrofile for xpath
+(or use environment variable \fBALTO_MACROFILE\fP)
+.TP
+\fB-n\fP
+mark matching node
+.TP
+\fB-o\fP \fIfilename\fP
+output
+.TP
+\fB-r\fP
+replace xml in existing dact file
+.TP
+\fB-v\fP \fIname\fP\fB=\fP\fIvalue\fP
+set global variable (can be used multiple times)
+.TP
+\fB-1\fP
+use XPath version 1 for searching in DACT files
+.TP
+\fB-2\fP
+use XPath2 and XSLT2 (slow)
+.TP
+\fB-2p\fP
+use XPath2 (slow)
+.TP
+\fB-2s\fP
+use XSLT2 (slow)
+.SH ACTTIES
+.TP
+\fBds:ud\fP
+insert Universal Dependencies
+.TP
+\fBds:noud\fP
+remove Universal Dependencies
+.TP
+\fBds:extra\fP
+add extra attributes: \fBis_np\fP, \fBis_vorfeld\fP, \fBis_nachfeld\fP
+.TP
+\fBds:minimal\fP
+removes all but essential entities and attributes
+.TP
+\fBfp:\fP\fIexpression\fP
+filter by XPath \fIexpression\fP
+.TP
+\fBtq:\fP\fIxqueryfile\fP
+transform with XQuery \fIxqueryfile\fP
+.TP
+\fBts:\fP\fIstylefile\fP
+transform with XSLT \fIstylefile\fP
+.TP
+\fBtt:\fP\fItemplate\fP
+transform with \fItemplate\fP
+.TP
+\fBTq:\fP\fIxqueryfile\fP
+like \fBtq\fP, match data as input
+.TP
+\fBTs:\fP\fIstylefile\fP
+like \fBts\fP, match data as input
+.TP
+\fBac:sum\fP
+aggregated match count
+.TP
+\fBac:rel\fP
+aggregated relative match count
+.TP
+\fBAc:sum\fP
+aggregated match line count
+.TP
+\fBAc:rel\fP
+aggregated relative match line count
+.SH GEBRUIK
+De argumenten voor \fBalto\fP bestaan uit opties, acties en
+bestandsnamen. Je kunt deze door elkaar gebruiken. Acties worden
+uitgevoerd in de volgorde waarin ze zijn gegeven. Bestanden worden
+verwerkt in de volgorde waarin ze zijn gegeven.
+
+De verwerking verloopt zo:
+
+.nf
+.RS
+( \fIinput1\fP, \fIinput2\fP, ... ) -> \fIactie1\fP -> \fIactie2\fP -> ... -> \fIoutput\fP
+.RE
+.fi
+
+Namen van opties beginnen met een minus. Namen van acties beginnen met
+twee letters en een dubbele punt.
+.SS Het maken van een corpus
+.TP
+\fBalto -o\fP\fI output.dact *.xml\fP
+Plaats alle XML-bestanden \fI*.xml\fP in het DACT-bestand \fIoutput.dact\fP. Wanneer
+de optie \fB-o\fP ontbreekt gaat de uitvoer naar \fIstdout\fP.
+.TP
+\fBalto\fP \fIinput.dact\fP \fB-o\fP \fIoutput.data.dz\fP
+Zet DACT-bestand \fIinput.dact\fP om naar een compact corpus.
+.TP
+\fBalto\fP \fIinput1.data.dz input2.data.dz\fP \fB-o\fP \fIoutput.dact\fP
+Voeg meerdere compacte corpora samen in één DACT-bestand.
+.TP
+\fBfind . -name '*.xml' | alto -i -o\fP \fIoutput.zip\fP
+Met optie \fB-i\fP lees je namen van invoerbestanden van \fIstdin\fP,
+één naam per regel.
+.TP
+\fBalto -o\fP \fIcorpus\fP\fB.dact\fP \fIfile\fP\fB.xml -r\fP
+Gewoonlijk worden geen bestanden overschreven. Het is wel mogelijk om
+een XML-bestand in een bestaand DACT-bestand te vervangen of toe te
+voegen. Hiervoor moet je de optie \fB-r\fP gebruiken.
+.PP
+Geldige namen voor invoer:
+.RS
+.IP \(bu 4
+*\fB.xml\fP
+.IP \(bu 4
+*\fB.dact\fP (of *\fB.dbxml\fP)
+.IP \(bu 4
+*\fB.data.dz\fP (of *\fB.index\fP)
+.IP \(bu 4
+*\fB.zip\fP
+.IP \(bu 4
+naam van een map
+.RE
+
+Je kunt ook één of meer xml-bestanden uit een corpusbestand selecteren
+als invoer:
+.RS
+.IP \(bu 4
+\fIinput.dact::file1.xml::file2.xml::file3.xml\fP
+.RE
+
+Geldige namen voor uitvoer:
+.RS
+.IP \(bu 4
+*\fB.dact\fP (of *\fB.dbxml\fP) \- \fBalleen voor xml-bestanden\fP
+.IP \(bu 4
+*\fB.data.dz\fP (of *\fB.index\fP)
+.IP \(bu 4
+*\fB.zip\fP
+.IP \(bu 4
+*\fB.txt\fP
+.IP \(bu 4
+naam van een map
+.RE
+.SS Alpino-bestanden veranderen
+.TP
+\fBalto\fP \fIinput.dact\fP \fB-o\fP \fIoutput.dact\fP \fBds:ud\fP
+Voeg Universal Dependencies toe.
+.TP
+\fBalto\fP \fIinput.dact\fP \fB-o\fP \fIoutput.dact\fP \fBds:noud\fP
+Verwijder Universal Dependencies.
+.TP
+\fBalto\fP \fIinput.dact\fP \fB-o\fP \fIoutput.dact\fP \fBds:extra\fP
+Voeg extra attributen toe: \fBis_np\fP, \fBis_vorfeld\fP, \fBis_nachfeld\fP.
+.TP
+\fBalto\fP \fIinput.dact\fP \fB-o\fP \fIoutput.dact\fP \fBds:minimal\fP
+Verwijder entity's en attributen tot alleen dat overblijft wat door
+de minimale Alpino-plugin voor TrEd wordt gebruikt. Zie:
+.nf
+https://www.let.rug.nl/vannoord/alp/Alpino/tred/
+.fi
+.PP
+.SS Zoeken en filteren
+.TP
+\fBalto\fP \fIinput.dact\fP \fB-o\fP \fIoutput.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP
+Maak een subcorpus met alleen de XML-bestanden die een match hebben voor
+de XPATH-expressie \fI//node[@root="fiets"]\fP.
+.TP
+\fBalto\fP \fIinput.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBtt:%f\fP
+Doorzoek een corpus en print de uitvoer op \fIstdout\fP. De
+transformatie \fBtt:%f\fP zorgt ervoor dat niet de inhoud van het XML-bestand geprint
+wordt, maar de naam van het XML-bestand.
+.TP
+\fBalto\fP \fIinput.dact\fP \fBfp:\fP\fI'//node[%my_macro%]'\fP \fBtt:%f -m\fP \fImacrofile\fP
+Zoek met gebruik van een macro. De macro \fImy_macro\fP is gedefinieerd in
+\fImacrofile\fP. Je kunt ook de environment variabele
+\fBALTO_MACROFILE\fP gebruiken om naar het macrobestand te wijzen. De
+optie \fB-m\fP heeft voorrang.
+Voor de syntax van het macrobestand, zie:
+.nf
+https://rug-compling.github.io/dact/manual/#macros
+.fi
+.PP
+Je kunt de actie \fBfp:\fP meerdere keren gebruiken, eerst met een
+simpele expressie om het zoeken te beperken tot een klein aantal
+XML-bestanden in het corpus, daarna een tweede, mogelijk tijdrovende
+expressie voor het eindresultaat.
+
+Een aantal opties beïnvloeden het zoeken en filteren:
+.TP
+\fB-e\fP
+Toon de XPATH-expressie met geëxpandeerde macro's.
+.TP
+\fB-m\fP \fIfilename\fP
+Lees definities van macro's uit bestand \fIfilename\fP.
+.TP
+\fB-n\fP
+Plaats een speciale markering op de nodes die matchen. Deze markering
+kan in een later stadium gebruik worden voor een transformatie.
+Zo'n markering ziet er zo uit:
+\fB<node\fP...\fB><data name="match"/>\fP...\fB</node>\fP.
+.TP
+\fB-1\fP
+Gewoonlijk wordt bij het zoeken in een DACT-bestand door het eerste
+filter gebruik gemaakt van XPATH versie 2. Dit is gewoonlijk het snelst,
+maar niet altijd correct. Met de optie \fB-1\fP zorg je ervoor dat
+eerst alle bestanden uit het DACT-bestand worden gelezen, en daarna
+gefilter met XPATH versie 1.
+.TP
+\fB-2p\fP
+Gewoonlijk wordt XPATH versie 1 gebruikt wanneer er niet rechtstreeks in
+een DACT-bestand wordt gezocht. Met deze optie zorg je ervoor dat altijd
+XPATH versie 2 gebruikt wordt. Dit is aanzienlijk trager dan zoeken met
+versie 1.
+.TP
+\fB-2\fp
+Dit combineert de opties \fB-2p\fP en \fB-2s\fP (zie beneden).
+.SS Transformeren met een stylesheet
+.TP
+\fBalto\fP \fIinput.xml\fP \fBtq:\fP\fIstyle.xq\fP
+Transformeer de invoer (in dit geval een enkel XML-bestand) met XQuery dmv
+het script \fIstyle.xq\fP.
+.TP
+\fBalto\fP \fIinput.xml\fP \fBts:\fP\fIstyle.xsl\fP
+Transformeer de invoer met XSLT dmv
+het stylesheet \fIstyle.xsl\fB.
+.TP
+\fBalto\fP \fIinput.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBTq:\fP\fIstyle.xq\fP
+Transformeer de gematchte subtree met XQuery dmv
+het script \fIstyle.xq\fB.
+.TP
+\fBalto\fP \fIinput.dact\f{ \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBTs:\fP\fIstyle.xsl\fP
+Transformeer de gematchte subtree met XSLT dmv
+het stylesheet \fIstyle.xsl\fB.
+.PP
+Een aantal opties beïnvloeden de transformatie:
+.TP
+\fB-n\fP
+Zie boven, onder kopje \fBZoeken en filteren\fP.
+.TP
+\fB-v\fP \fIname\fP\fB=\fP\fIvalue\fP
+Definieer de globale variabele \fIname\fP met de waarde \fIvalue\fP. Je
+kunt deze optie meerdere keren gebruiken. De variabelen \fBfilename\fP
+en \fBcorpusname\fP worden automatisch gezet.
+.TP
+\fB-2s\fP
+Gebruik XSLT versie 2. Default is versie 1. Versie 2 is aanzienlijk
+trager.
+.TP
+\fB-2\fP
+Dit combineert de opties \fB-2s\fP en \fB-2p\fP (zie boven).
+.PP
+.SS Transformeren met een template
+.TP
+\fBalto\fP \fIinput.dact\fP \fBfp:\fP\fI'//node[node[@root="fiets"]]'\fP \fBtt:\fP\fI'%f\\t%S\\n%M\\n'\fP
+Voor elke match voor de XPATH-expressie, print de bestandnaam, de zin
+met het matchende deel gemarkeerd, en daaronder de dependency structure
+van de match.
+.PP
+De volgende vlaggen kun je altijd gebruiken:
+.TP
+\fB\\t\fP
+Tab.
+.TP
+\fB\\n\fP
+Newline.
+.TP
+\fB%%\fP
+Het procent-teken.
+.TP
+\fB%c\fP
+De naam van het corpus.
+.TP
+\fB%f\fP
+De naam van het XML-bestand.
+.TP
+\fB%F\fP
+Als de invoer een DACT-bestand is, een compact corpus, of een
+ZIP-bestand, dan gelijk aan \fB%c::%f\fP, anders gelijk aan \fB%f\fP.
+.TP
+\fB%b\fP
+De inhoud van het XML-bestand.
+.TP
+\fB%I\fP
+De sentence-ID.
+.TP
+\fB%s\fP
+De zin.
+.TP
+\fB%o\fP
+Alle comments, gescheiden door \fB\\n\\t\fP.
+.TP
+\fB%d\fP
+De metadata.
+.PP
+De volgende vlaggen kun je gebruiken na zoeken met XPATH. Wanneer er
+meerdere machtes zijn in hetzelfde XML-bestand, dan worden de resultaten
+apart getoond, behalve voor de vlag \fB%j\fP.
+.TP
+\fB%i\fP
+ID van de matchende node.
+.TP
+\fB%j\fP
+IDs van alle machtende nodes, gescheiden door een spatie.
+.TP
+\fB%S\fP
+De zin met de woorden onder de matchende node gekleurd.
+.TP
+\fB%m\fP
+De gematchte subtree als XML-fragment.
+.TP
+\fB%M\fP
+De gematche subtree als een dependency structure.
+.TP
+\fB%w\fP
+De woorden onder de matchende node.
+.PP
+Je kunt in een vlag een getal zetten om aan te geven breed de uitvoer
+moet zijn. Met een minus ervoor wordt de tekst links uitgelijnd, zonder
+minus rechts. Een voorbeeld:
+
+.nf
+.RS
+\fBtt:'%-14f %8I'\fP
+.RE
+.fi
+.SS Aggregeren
+
+TO DO
+
+.SH ENVIRONMENT
+
+TO DO
+
+.SH AUTEUR
+Peter Kleiweg
+.SH BUGS
+.nf
+https://github.com/rug-compling/alto/issues
+.if
+
