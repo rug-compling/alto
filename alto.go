@@ -82,6 +82,7 @@ var (
 )
 
 func usage() {
+	major, minor, patch := dbxml.Version()
 	fmt.Printf(
 		`
 Usage: %s (option | action | filename) ...
@@ -168,11 +169,15 @@ Valid output filenames:
 
 Default output is stdout
 
+%s uses DbXML version %d.%d.%d
+
 `,
 		os.Args[0],
 		os.Args[0],
 		os.Args[0],
-		os.Args[0])
+		os.Args[0],
+		os.Args[0],
+		major, minor, patch)
 }
 
 func main() {
