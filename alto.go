@@ -59,7 +59,6 @@ var (
 	cFILENAME   = C.CString("filename")
 
 	verbose       = true
-	xmlfiles      []string
 	macrofile     = ""
 	showExpansion = false
 	replace       = false
@@ -85,27 +84,22 @@ var (
 func usage() {
 	fmt.Printf(
 		`
-Usage: %s [(option | action | filename) ...]
+Usage: %s (option | action | filename) ...
 
 Options:
 
     -e              : show macro-expansion
     -i              : read input filenames from stdin
     -m filename     : use this macrofile for xpath
+                      (or use environment variable ALTO_MACROFILE)
     -n              : mark matching node
     -o filename     : output
     -r              : replace xml in existing dact file
-    -v name=value   : set global variable
+    -v name=value   : set global variable (can be used multiple times)
     -1              : use XPath version 1 for searching in DACT files
     -2              : use XPath2 and XSLT2 (slow)
     -2p             : use XPath2 (slow)
     -2s             : use XSLT2 (slow)
-
-You can also set the macrofile with the environment variable ALTO_MACROFILE
-The option -m has precendence
-
-You can use the option -v more than once
-The variables "filename" and "corpusname" are set automatically
 
 Actions:
 
@@ -114,8 +108,6 @@ Actions:
     ds:extra        : add extra attributes: is_np, is_vorfeld, is_nachfeld
     ds:minimal      : removes all but essential entities and attributes
 
-    ff:{filename1,filename2,...}
-                    : filter by {filename(s)} (dact, compact, zip)
     fp:{expression} : filter by XPath {expression}
 
     tq:{xqueryfile} : transform with XQuery {xqueryfile}
@@ -129,7 +121,6 @@ Actions:
     ac:rel          : aggregated relative match count
     Ac:sum          : aggregated match line count
     Ac:rel          : aggregated relative match line count
-
 
 Template placeholders:
 
@@ -148,14 +139,16 @@ Template placeholders:
     %%M  match as tree
     %%w  match words
     %%d  metadata
+    \t  tab
+    \n  newline
 
-
-Input filenames can be given as arguments or/and one name per line on stdin
+Input filenames can be given as arguments, or/and
+one name per line on stdin, using option -i
 
 Examples:
-    %s -o corpus.zip *.xml
-    %s -o corpus.dact corpus.zip
-    find . '-name *.xml' | %s -o corpus.zip
+    %s *.xml -o output.zip
+    %s -o output.dact input.zip
+    find . -name '*.xml' | %s -o output.zip -i
 
 Valid input filenames:
     *.xml
@@ -174,7 +167,6 @@ Valid output filenames:
     directory name
 
 Default output is stdout
-
 
 `,
 		os.Args[0],
@@ -300,12 +292,6 @@ func main() {
 			chOut := make(chan Item, 100)
 			go doMinimal(chIn, chOut)
 			chIn = chOut
-		} else if act == "ff" {
-			if i != 0 {
-				fmt.Fprintln(os.Stderr, "Filter ff should be the first action")
-				return
-			}
-			xmlfiles = strings.Split(arg, ",")
 		} else if act == "fp" {
 			arg = expandMacros(arg)
 			if i == 0 && !version1 {
@@ -367,6 +353,7 @@ func main() {
 
 	n := len(inputfiles)
 	for i, infile := range inputfiles {
+		var xmlfiles []string
 		a := strings.Split(infile, "::")
 		if len(a) > 1 {
 			infile = a[0]
@@ -374,18 +361,18 @@ func main() {
 		}
 		infile = filepath.Clean(infile)
 		if strings.HasSuffix(infile, ".data.dz") || strings.HasSuffix(infile, ".index") {
-			readCompact(chStart, infile, i+1, n)
+			readCompact(chStart, infile, i+1, n, xmlfiles)
 		} else if strings.HasSuffix(infile, ".dbxml") || strings.HasSuffix(infile, ".dact") {
-			readDact(chStart, infile, i+1, n, firstFilter)
+			readDact(chStart, infile, i+1, n, firstFilter, xmlfiles)
 		} else if strings.HasSuffix(infile, ".zip") {
-			readZip(chStart, infile, i+1, n)
+			readZip(chStart, infile, i+1, n, xmlfiles)
+		} else if xmlfiles != nil {
+			fmt.Fprintf(os.Stderr, "Invalid corpus/file combination: %s::%s\n", infile, strings.Join(xmlfiles, "::"))
+			return
 		} else if strings.HasSuffix(infile, ".xml") {
 			readXml(chStart, infile, i+1, n)
 		} else {
 			readDir(chStart, infile, "", i+1, n, firstFilter)
-		}
-		if len(a) > 1 {
-			xmlfiles = []string{}
 		}
 	}
 
@@ -851,7 +838,7 @@ func writeDir(chIn <-chan Item, outdir string) {
 	close(chDone)
 }
 
-func readCompact(chOut chan<- Item, infile string, i, n int) {
+func readCompact(chOut chan<- Item, infile string, i, n int, xmlfiles []string) {
 	infile = strings.TrimSuffix(infile, ".data.dz")
 	infile = strings.TrimSuffix(infile, ".index")
 	if compactSeen[infile] {
@@ -900,7 +887,7 @@ func readCompact(chOut chan<- Item, infile string, i, n int) {
 	}
 }
 
-func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
+func readDact(chOut chan<- Item, infile string, i, n int, filter string, xmlfiles []string) {
 	// runtime.LockOSThread()
 
 	db, err := dbxml.OpenRead(infile)
@@ -1003,7 +990,7 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string) {
 	}
 }
 
-func readZip(chOut chan<- Item, infile string, i, n int) {
+func readZip(chOut chan<- Item, infile string, i, n int, xmlfiles []string) {
 	zr, err := zip.OpenReader(infile)
 	x(err)
 
@@ -1050,11 +1037,6 @@ func readZip(chOut chan<- Item, infile string, i, n int) {
 }
 
 func readXml(chOut chan<- Item, infile string, i, n int) {
-	if xmlfiles != nil {
-		fmt.Fprintln(os.Stderr, "Filter 'ff' makes sense only for corpus in dact, compact, or zip format")
-		os.Exit(1)
-	}
-
 	if verbose {
 		fmt.Fprintf(os.Stderr, " %d/%d %s        \r", i, n, infile)
 	}
@@ -1070,11 +1052,6 @@ func readXml(chOut chan<- Item, infile string, i, n int) {
 }
 
 func readDir(chOut chan<- Item, indir, subdir string, i, n int, firstfilter string) {
-	if xmlfiles != nil {
-		fmt.Fprintln(os.Stderr, "Filter 'ff' makes sense only for corpus in dact, compact, or zip format")
-		os.Exit(1)
-	}
-
 	dirname := indir
 	if subdir != "" {
 		dirname = filepath.Join(indir, subdir)
@@ -1094,15 +1071,15 @@ func readDir(chOut chan<- Item, indir, subdir string, i, n int, firstfilter stri
 			continue
 		}
 		if strings.HasSuffix(name, ".dact") || strings.HasSuffix(name, ".dbxml") {
-			readDact(chOut, fullname, j+1, size, firstfilter)
+			readDact(chOut, fullname, j+1, size, firstfilter, nil)
 			continue
 		}
 		if strings.HasSuffix(name, ".data.dz") || strings.HasSuffix(name, ".index") {
-			readCompact(chOut, fullname, j+1, size)
+			readCompact(chOut, fullname, j+1, size, nil)
 			continue
 		}
 		if strings.HasSuffix(name, ".zip") {
-			readZip(chOut, fullname, j+1, size)
+			readZip(chOut, fullname, j+1, size, nil)
 			continue
 		}
 		if !strings.HasSuffix(name, ".xml") {
