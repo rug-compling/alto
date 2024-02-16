@@ -327,7 +327,7 @@ func doWords(alpino *alpinods.AlpinoDS, node *alpinods.Node) (words string, sent
 
 	sentence = strings.Join(wordslist, " ")
 
-	if last > first {
+	if last >= first {
 		wlist := make([]string, 0, last-first+1)
 		inUse = true
 		for i := first; i <= last; i++ {
