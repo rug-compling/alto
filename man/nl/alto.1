@@ -127,39 +127,54 @@ een XML-bestand in een bestaand DACT-bestand te vervangen of toe te
 voegen. Hiervoor moet je de optie \fB-r\fP gebruiken.
 .PP
 Geldige namen voor invoer:
-.RS
-.IP \(bu 4
+.TP
 *\fB.xml\fP
-.IP \(bu 4
+los XML-bestand met één geparste zin
+.TP
 *\fB.dact\fP (of *\fB.dbxml\fP)
-.IP \(bu 4
+een DACT-bestand is een snel doorzoekbare collectie van XML-bestanden
+.TP
 *\fB.data.dz\fP (of *\fB.index\fP)
-.IP \(bu 4
+een compact corpus is een gecomprimeerde verzameling XML-bestanden
+.TP
 *\fB.zip\fP
-.IP \(bu 4
-naam van een map
-.RE
-
-Je kunt ook één of meer xml-bestanden uit een corpusbestand selecteren
+een verzameling XML-bestanden in een ZIP-bestand
+.TP
+\fInaam van een map\fP
+een directory met daarin losse XML-bestanden en/of DACT-bestanden,
+compacte corpora, ZIP-bestanden, of subdirectory's
+.PP
+Je kunt ook één of meer xml-bestanden uit een corpusbestand (DACT,
+compact, ZIP) selecteren
 als invoer:
+
+.nf
 .RS
-.IP \(bu 4
 \fIinput.dact::file1.xml::file2.xml::file3.xml\fP
 .RE
+.fi
 
 Geldige namen voor uitvoer:
-.RS
-.IP \(bu 4
-*\fB.dact\fP (of *\fB.dbxml\fP) \- \fBalleen voor xml-bestanden\fP
-.IP \(bu 4
+.TP
+*\fB.dact\fP (of *\fB.dbxml\fP)
+als de uitvoer bestaat uit XML-bestanden kun je die opslaan in één
+DACT-bestand
+.TP
 *\fB.data.dz\fP (of *\fB.index\fP)
-.IP \(bu 4
+een compact corpus is bedoeld voor het opslaan van XML-bestanden van
+geparste zinnen, maar je kunt er ook andere bestanden in opslaan
+.TP
 *\fB.zip\fP
-.IP \(bu 4
+voor het opslaan van bestanden in één ZIP-bestand
+.TP
 *\fB.txt\fP
-.IP \(bu 4
-naam van een map
-.RE
+alle uitvoer wordt samengevoegd en opgeslagen in één doorlopend
+tekstbestand
+.TP
+\fInaam van een map\fP
+de verwerking van elk individueel XML-bestand wordt als los bestand
+opgeslagen in de directory
+.PP
 .SS Alpino-bestanden veranderen
 .TP
 \fBalto\fP \fIinput.dact\fP \fB-o\fP \fIoutput.dact\fP \fBds:ud\fP
@@ -360,7 +375,7 @@ return fn:concat(fn:string-join($x//node[@word]/@word, ' '), '&#10;')
 .fi
 
 .TP
-\fBalto \fIcorpus.dact\fP \fBfp:\fP'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@cat="mwu"]'\fP \fBtq:\fP\fImwu.xq\fP
 Dit geeft een lijst met alle multi-word units in het corpus. Sommige
 XML-bestanden bevatten meerdere multi-word units, en die worden onder
 elkaar weergegeven. In dit voorbeeld valt dat niet op.
