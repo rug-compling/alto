@@ -124,8 +124,8 @@ Actions:
     ac:word         : count of lemma, root, sense, word
     ac:nw           : combination of ac:node and ac:word
 
-    vt:{type}       : create full tree, type = dot, svg, png, eps, pdf
-    vm:{type}       : create match subtree
+    vt:{type}       : save tree as image, type = dot, svg, png, eps, pdf
+    vm:{type}       : save subtree as image
 
 Template placeholders:
 
