@@ -89,6 +89,13 @@ count of lemma, root, sense, word
 .TP
 \fBac:nw\fP
 combination of \fBac:node\fP and \fBac:word\fP
+.TP
+\fBvt:\fP\fItype\fP
+save tree as image, \fItype\fP is one of: \fBdot\fP, \fBsvg\fP, \fBpng\fP,
+\fBeps\fP, \fBpdf\fP
+.TP
+\fBvm:\fP\fItype\fP
+save subtree as image
 .SH GEBRUIK
 De argumenten voor \fBalto\fP bestaan uit opties, acties en
 bestandsnamen. Je kunt deze door elkaar gebruiken. Acties worden
@@ -398,6 +405,21 @@ lemma, root, sense, word
 .TP
 \fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBac:nw\fP
 \fBac:nw\fP combineert \fBac:node\fP en \fBac:word\fP.
+.SS visualiseren
+.TP
+\fBalto -n\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBvt:png -o\fP \fIoutput\fP
+Met de actie \fBvt:png\fP maak je een PNG-afbeelding van de boom van de
+zin. In dit voorbeeld doe je dit alleen voor de zinnen die voldoen aan
+de XPATH-expressie, en de optie \fB-n\fP zorgt ervoor dat de matchende
+nodes in de boom een kleur krijgen. In dit voorbeeld worden alle
+PNG-afbeeldingen opgeslagen in de directory \fIoutput\fP. Behalve
+\fBpng\fP kun je ook deze uitvoerformaten kiezen:
+\fBdot\fP, \fBsvg\fP, \fBeps\fP, \fBpdf\fP.
+.TP
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBvm:png -o\fP \fIoutput\fP
+Met de actie \fBvm:png\fP doe je bijna hetzelfde als met \fBvt:png\fP,
+naar nu sla je alleen de subboom op van de matchende node. De optie
+\fB-n\fP heeft geen effect.
 .SH ENVIRONMENT
 .TP
 \fBALTO_MACROFILE\fP

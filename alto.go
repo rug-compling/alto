@@ -124,6 +124,9 @@ Actions:
     ac:word         : count of lemma, root, sense, word
     ac:nw           : combination of ac:node and ac:word
 
+    vt:{type}       : create full tree, type = dot, svg, png, eps, pdf
+    vm:{type}       : create match subtree
+
 Template placeholders:
 
     %%%%  %%
@@ -342,6 +345,14 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Unknown action %q\n", action)
 				return
 			}
+			chIn = chOut
+		} else if act == "vt" || act == "vm" {
+			if arg != "dot" && arg != "svg" && arg != "png" && arg != "eps" && arg != "pdf" {
+				fmt.Fprintf(os.Stderr, "Unknown visualisation %q\n", action)
+				return
+			}
+			chOut := make(chan Item, 100)
+			go vizTree(chIn, chOut, act == "vm", arg)
 			chIn = chOut
 		} else {
 			fmt.Fprintf(os.Stderr, "Unknown action %q\n", action)
