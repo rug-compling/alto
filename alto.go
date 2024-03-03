@@ -126,6 +126,8 @@ Actions:
 
     vt:{type}       : save tree as image, type = dot, svg, png, eps, pdf
     vm:{type}       : save subtree as image
+    vu:{type}       : save Universal Dependencies as image, type = svg, png, eps, pdf
+    vx:{type}       : save Extended Universal Dependencies as image
 
 Template placeholders:
 
@@ -353,6 +355,14 @@ func main() {
 			}
 			chOut := make(chan Item, 100)
 			go vizTree(chIn, chOut, act == "vm", arg)
+			chIn = chOut
+		} else if act == "vu" || act == "vx" {
+			if arg != "svg" && arg != "png" && arg != "eps" && arg != "pdf" {
+				fmt.Fprintf(os.Stderr, "Unknown visualisation %q\n", action)
+				return
+			}
+			chOut := make(chan Item, 100)
+			go vizUD(chIn, chOut, act == "vx", arg)
 			chIn = chOut
 		} else {
 			fmt.Fprintf(os.Stderr, "Unknown action %q\n", action)

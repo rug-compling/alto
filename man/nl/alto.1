@@ -96,6 +96,13 @@ save tree as image, \fItype\fP is one of: \fBdot\fP, \fBsvg\fP, \fBpng\fP,
 .TP
 \fBvm:\fP\fItype\fP
 save subtree as image
+.TP
+\fBvu:\fP\fItype\fP
+save Universal Dependencies as image, \fItype\fP is one of \fBsvg\fP,
+\fBpng\fP, \fBeps\fP, \fBpdf\fP
+.TP
+\fBvx:\fP\fItype\fP
+save Extended Universal Dependencies as image
 .SH GEBRUIK
 De argumenten voor \fBalto\fP bestaan uit opties, acties en
 bestandsnamen. Je kunt deze door elkaar gebruiken. Acties worden
@@ -420,6 +427,17 @@ PNG-afbeeldingen opgeslagen in de directory \fIoutput\fP. Behalve
 Met de actie \fBvm:png\fP doe je bijna hetzelfde als met \fBvt:png\fP,
 naar nu sla je alleen de subboom op van de matchende node. De optie
 \fB-n\fP heeft geen effect.
+.TP
+\fBalto \fIcorpus.dact\fP \fBds:ud vu:png -o\fP \fIoutput\fP
+Met \fBds:ud\fP voeg je Universal Dependencies toe. Met \fBvu:png\fP
+maak je daar PNG-afbeeldingen van. Bestanden waarvoor het afleiden van
+UD mislukt worden overgeslagen. Behalve
+\fBpng\fP kun je ook deze uitvoerformaten kiezen:
+\fBsvg\fP, \fBeps\fP, \fBpdf\fP.
+.TP
+\fBalto \fIcorpus.dact\fP \fBds:ud vx:png -o\fP \fIoutput\fP
+Met \fBvx:png\fP maak je PNG-afbeeldingen van de Extended Universal
+Dependencies. Verder is dit voorbeeld gelijk aan het vorige.
 .SH ENVIRONMENT
 .TP
 \fBALTO_MACROFILE\fP
@@ -429,6 +447,12 @@ Voor het gebruik van macro's, zie:
 .nf
 https://rug-compling.github.io/dact/manual/#macros
 .fi
+.TP
+\fBTEMP\fP
+Naam van directory waar \fBalto\fP tijdelijke bestanden opslaat.
+.TP
+\fBTMP\fP
+Wordt gebruikt in plaats van \fBTEMP\fP als die variabele leeg is.
 .SH AUTEUR
 Peter Kleiweg
 .SH BUGS
