@@ -2,8 +2,6 @@ module github.com/rug-compling/alto
 
 go 1.21.1
 
-replace github.com/ungerik/go-cairo => /home/peter/go/src/github.com/pebbe/go-cairo
-
 require (
 	github.com/jbowtie/gokogiri v0.0.0-20190301021639-37f655d3078f
 	github.com/pebbe/compactcorpus v1.0.2
@@ -11,6 +9,6 @@ require (
 	github.com/pebbe/util v0.9.0
 	github.com/rug-compling/alpinods v1.16.3
 	github.com/rug-compling/alud/v2 v2.13.0
-	github.com/ungerik/go-cairo v0.0.0-20240303085021-95567bf85217
+	github.com/ungerik/go-cairo v0.0.0-20240303200444-7cd283f89558
 	github.com/wamuir/go-xslt v0.1.5
 )

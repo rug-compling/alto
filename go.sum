@@ -12,7 +12,7 @@ github.com/rug-compling/alpinods v1.16.3 h1:28KB7fB49ODrsa7h9x95GTXyi+1r6VzYe070
 github.com/rug-compling/alpinods v1.16.3/go.mod h1:R3BBX8RIw9InVqHZ+1W+MsX8WX8uBkoVNNGE38mqF1Q=
 github.com/rug-compling/alud/v2 v2.13.0 h1:3ZFISvs4ssaA1L/N8VlB8bpQVHPIbd+iD0pSxCwxlfY=
 github.com/rug-compling/alud/v2 v2.13.0/go.mod h1:ayWwNfOc9Rd7HNIBpJtffuhDHxt+VFxgfG1RtZ6569g=
-github.com/ungerik/go-cairo v0.0.0-20240303085021-95567bf85217 h1:LuAOzWdf/BtYNsdiCSWpo4kMMuaNIOwTO+B2qIhWSJA=
-github.com/ungerik/go-cairo v0.0.0-20240303085021-95567bf85217/go.mod h1:yLTJg56omDJ+JVxZ5whpCrZgQdaSs+OBdFa+X6ViJcI=
+github.com/ungerik/go-cairo v0.0.0-20240303200444-7cd283f89558 h1:j7egGH3DDOtz7cDr8MDrLSSpO05XA3ZgFGmbiHJbX3I=
+github.com/ungerik/go-cairo v0.0.0-20240303200444-7cd283f89558/go.mod h1:yLTJg56omDJ+JVxZ5whpCrZgQdaSs+OBdFa+X6ViJcI=
 github.com/wamuir/go-xslt v0.1.5 h1:FmO1SD7PpoJtHOfnXcb6R/+NANYHX8+mz0UogNJuPnk=
 github.com/wamuir/go-xslt v0.1.5/go.mod h1:4TQnJGYG4FeeVIgAnV4tyr5pyZQOpxfEZv6Uby/qikU=
