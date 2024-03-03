@@ -165,6 +165,12 @@ func print_nodes(ctx *TreeContext, node *alpinods.Node) {
 	idx := ""
 	style := ""
 
+	if node.Index > 0 {
+		idx = fmt.Sprintf("\\n%v", node.Index)
+		style += ", color=\"#d3d3d3\""
+		style += ", shape=box"
+	}
+
 	if node.Data != nil {
 		for _, d := range node.Data {
 			if d.Name == "match" {
