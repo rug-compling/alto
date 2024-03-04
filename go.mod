@@ -9,6 +9,6 @@ require (
 	github.com/pebbe/util v0.9.0
 	github.com/rug-compling/alpinods v1.16.3
 	github.com/rug-compling/alud/v2 v2.13.0
-	github.com/ungerik/go-cairo v0.0.0-20240303200444-7cd283f89558
+	github.com/ungerik/go-cairo v0.0.0-20240304075741-47de8851d267
 	github.com/wamuir/go-xslt v0.1.5
 )
