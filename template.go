@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"github.com/rug-compling/alpinods"
+	"github.com/rug-compling/alud/v2"
 )
 
 type Fields struct {
@@ -26,6 +27,7 @@ type Fields struct {
 	Tree           string
 	Words          string
 	Metadata       string
+	UD             string
 }
 
 var (
@@ -49,10 +51,11 @@ var (
   %M  *match tree
   %w  *match, words only
   %d  metadata
+  %u  UD
 */
 
 func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
-	var needAlpino, needMeta, multi, needID, needIDs, needMatch, needMarked, needWords, needTree bool
+	var needAlpino, needMeta, multi, needID, needIDs, needMatch, needMarked, needWords, needTree, needUD bool
 	format := reBS.ReplaceAllStringFunc(tmpl, func(s string) string {
 		if s == `\n` {
 			return "\n"
@@ -120,13 +123,17 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 		case 'd':
 			needAlpino = true
 			needMeta = true
-			return "{{.Metadata" + toS
+			return "{{.Metadata}}"
+		case 'u':
+			needAlpino = true
+			needUD = true
+			return "{{.UD}}"
 		default:
 			x(fmt.Errorf("Unknown flag %q", s))
 		}
 		return ""
 	})
-	if !strings.HasSuffix(format, "\n") {
+	if !(strings.HasSuffix(format, "\n") || strings.HasSuffix(format, "{{.UD}}")) {
 		format += "\n"
 	}
 	myTemplate, err := template.New("tmpl").Parse(format)
@@ -165,6 +172,41 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 					metas[i] = fmt.Sprintf("%s: %q", meta.Name, meta.Value)
 				}
 				data.Metadata = strings.Join(metas, ", ")
+			}
+			if needUD {
+				if alpino.Conllu == nil {
+					if item.arch != "" {
+						data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+					}
+					ud, err := alud.Ud([]byte(item.data), item.oriname, alpino.Sentence.SentID, alud.OPT_DUMMY_OUTPUT)
+					if err == nil {
+						data.UD += ud
+					} else {
+						e := err.Error()
+						i := strings.Index(e, "\n")
+						if i > 0 {
+							e = e[:i]
+						}
+						data.UD += fmt.Sprintf("# source = %s\n# error = %s\n\n", item.oriname, e)
+					}
+				} else if alpino.Conllu.Error != "" {
+					if item.arch != "" {
+						data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+					}
+					data.UD += fmt.Sprintf("# source = %s\n# error = %s\n\n", item.oriname, alpino.Conllu.Error)
+				} else {
+					data.UD = strings.TrimLeft(alpino.Conllu.Conllu, " \t\r\n")
+					if item.arch != "" {
+						if strings.Contains(data.UD, "# source =") && !strings.Contains(data.UD, "# archive") {
+							data.UD = fmt.Sprintf("# archive = %s\n%s", item.arch, data.UD)
+						}
+					}
+					if !strings.HasSuffix(data.UD, "\n") {
+						data.UD += "\n\n"
+					} else if !strings.HasSuffix(data.UD, "\n\n") {
+						data.UD += "\n"
+					}
+				}
 			}
 		}
 

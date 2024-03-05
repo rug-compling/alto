@@ -146,6 +146,7 @@ Template placeholders:
     %%M  match as tree
     %%w  match words
     %%d  metadata
+    %%u  universal dependencies
     \t  tab
     \n  newline
 

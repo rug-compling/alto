@@ -339,6 +339,11 @@ Alle comments, gescheiden door \fB\\n\\t\fP.
 .TP
 \fB%d\fP
 De metadata.
+.TP
+\fB%u\fP
+De Universal Dependencies. Wanneer de input al UD bevatten worden die
+gebruikt, anders worden ze berekend. Het gebruik van alleen \fBtt:%u\fP
+is sneller dan de combinatie \fBds:ud tt:%u\fP.
 .PP
 De volgende vlaggen kun je gebruiken na zoeken met XPATH. Wanneer er
 meerdere machtes zijn in hetzelfde XML-bestand, dan worden de resultaten
@@ -362,7 +367,7 @@ De gematche subtree als een dependency structure.
 \fB%w\fP
 De woorden onder de matchende node.
 .PP
-Je kunt in een vlag een getal zetten om aan te geven breed de uitvoer
+Je kunt in een vlag een getal zetten om aan te geven hoe breed de uitvoer
 moet zijn. Met een minus ervoor wordt de tekst links uitgelijnd, zonder
 minus rechts. Een voorbeeld:
 
