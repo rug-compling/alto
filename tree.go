@@ -75,20 +75,17 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 	cFormat := C.CString(format)
 	for item := range chIn {
 		if subtree {
-			var alpino alpinods.AlpinoDS
-			x(xml.Unmarshal([]byte(item.data), &alpino))
 			for i, match := range item.match {
-				// TODO: lege nodes invullen als de definitie buiten de subboom staat
 				chOut <- Item{
 					name:  fmt.Sprintf("%s.%d.%s", item.oriname, i+1, format),
-					data:  getTree(match, true, cFormat, format == "dot", alpino.Sentence.Sentence),
+					data:  getTree(item.data, match, cFormat, format == "dot"),
 					match: make([]string, 0),
 				}
 			}
 		} else {
 			chOut <- Item{
 				name:  fmt.Sprintf("%s.%s", item.oriname, format),
-				data:  getTree(item.data, false, cFormat, format == "dot", ""),
+				data:  getTree(item.data, "", cFormat, format == "dot"),
 				match: make([]string, 0),
 			}
 		}
@@ -96,15 +93,118 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 	close(chOut)
 }
 
-func getTree(data string, subtree bool, cFormat *C.char, wantDot bool, sentence string) string {
+func expandTree(alpino *alpinods.AlpinoDS) bool {
+	indexed := make(map[int]*alpinods.Node)
+
+	var f func(*alpinods.Node)
+	f = func(node *alpinods.Node) {
+		if node.Index > 0 && (node.Word != "" || (node.Node != nil && len(node.Node) > 0)) {
+			indexed[node.Index] = node
+		}
+		if node.Node != nil {
+			for _, n := range node.Node {
+				f(n)
+			}
+		}
+	}
+	f(alpino.Node)
+	if len(indexed) == 0 {
+		return false
+	}
+
+	f = func(node *alpinods.Node) {
+		if node.Index > 0 && node.Word == "" && (node.Node == nil || len(node.Node) == 0) {
+			nn := indexed[node.Index]
+			node.Cat = nn.Cat
+			node.Pos = nn.Pos
+			node.Pt = nn.Pt
+			node.Word = nn.Word
+			node.Node = nn.Node
+		}
+		if node.Node != nil {
+			for _, n := range node.Node {
+				f(n)
+			}
+		}
+	}
+	f(alpino.Node)
+	return true
+}
+
+func getSubtree(node *alpinods.Node, id int) *alpinods.Node {
+	if node.ID == id {
+		return node
+	}
+	if node.Node != nil {
+		for _, n := range node.Node {
+			if n2 := getSubtree(n, id); n2 != nil {
+				return n2
+			}
+		}
+	}
+	return nil
+}
+
+func trimTree(node *alpinods.Node) {
+	indexed := make(map[int]int)
+	var f func(*alpinods.Node)
+	f = func(node *alpinods.Node) {
+		if node.Index > 0 {
+			if _, ok := indexed[node.Index]; !ok {
+				indexed[node.Index] = 0
+			}
+			indexed[node.Index]++
+		}
+		if node.Node != nil {
+			for _, n := range node.Node {
+				f(n)
+			}
+		}
+	}
+	f(node)
+
+	seen := make(map[int]bool)
+	f = func(node *alpinods.Node) {
+		if node.Index > 0 {
+			if indexed[node.Index] == 1 {
+				node.Index = 0
+			} else {
+				if seen[node.Index] {
+					node.Cat = ""
+					node.Pt = ""
+					node.Pos = ""
+					node.Word = ""
+					node.Node = []*alpinods.Node{}
+				} else {
+					seen[node.Index] = true
+				}
+			}
+		}
+		if node.Node != nil {
+			for _, n := range node.Node {
+				f(n)
+			}
+		}
+	}
+	f(node)
+}
+
+func getTree(data string, subtree string, cFormat *C.char, wantDot bool) string {
 	var alpino alpinods.AlpinoDS
 	var node alpinods.Node
-	if subtree {
-		x(xml.Unmarshal([]byte(data), &node))
-	} else {
-		x(xml.Unmarshal([]byte(data), &alpino))
+	x(xml.Unmarshal([]byte(data), &alpino))
+	sentence := alpino.Sentence.Sentence
+	if subtree == "" {
 		node = *alpino.Node
-		sentence = alpino.Sentence.Sentence
+	} else {
+		var n alpinods.Node
+		x(xml.Unmarshal([]byte(subtree), &n))
+		if expandTree(&alpino) {
+			node = *getSubtree(alpino.Node, n.ID)
+			trimTree(&node)
+		} else {
+			node = n
+		}
 	}
 
 	ctx := &TreeContext{
@@ -203,25 +303,17 @@ func print_terms(ctx *TreeContext, node *alpinods.Node) []string {
 	if node.Node == nil || len(node.Node) == 0 {
 		if node.Word != "" {
 			// Een terminal
-			idx := ""
-			col := ""
 			if node.Begin != ctx.start {
 				// Onderbeking
 				terms = append(terms, "|")
 				// Onzichtbare node invoegen om te scheiden van node die links staat
-				ctx.graph.WriteString(fmt.Sprintf("    e%v [label=\" \", tooltip=\" \", style=invis];\n", node.ID))
+				ctx.graph.WriteString(fmt.Sprintf("    e%v [label=\" \", style=invis];\n", node.ID))
 				terms = append(terms, fmt.Sprintf("e%v", node.ID))
 				ctx.SkipThis[node.ID] = true
 			}
 			ctx.start = node.End
 			terms = append(terms, fmt.Sprintf("t%v", node.ID))
-			if node.Lemma == "" {
-				ctx.graph.WriteString(fmt.Sprintf("    t%v [label=\"%s%s\", tooltip=\"%s\"%s];\n",
-					node.ID, idx, dotquote(node.Word), dotquote2(node.Postag), col))
-			} else {
-				ctx.graph.WriteString(fmt.Sprintf("    t%v [label=\"%s%s\", tooltip=\"%s:%s\"%s];\n",
-					node.ID, idx, dotquote(node.Word), dotquote2(node.Lemma), dotquote(node.Postag), col))
-			}
+			ctx.graph.WriteString(fmt.Sprintf("    t%v [label=\"%s\"];\n", node.ID, dotquote(node.Word)))
 			//} else {
 			// Een lege node met index
 		}
