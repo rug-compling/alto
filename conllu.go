@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/rug-compling/alpinods"
+	"github.com/rug-compling/alud/v2"
 	"github.com/ungerik/go-cairo"
 )
 
@@ -101,10 +102,21 @@ func vizUD(chIn <-chan Item, chOut chan<- Item, extended bool, format string) {
 	for item := range chIn {
 		var alpino alpinods.AlpinoDS
 		x(xml.Unmarshal([]byte(item.data), &alpino))
-		if alpino.Conllu != nil && alpino.Conllu.Status == "OK" {
+		var ud string
+		if alpino.Conllu != nil {
+			if alpino.Conllu.Status == "OK" {
+				ud = alpino.Conllu.Conllu
+			}
+		} else {
+			s, err := alud.Ud([]byte(item.data), item.oriname, "", alud.OPT_NO_COMMENTS|alud.OPT_NO_DETOKENIZE)
+			if err == nil {
+				ud = s
+			}
+		}
+		if ud != "" {
 			chOut <- Item{
 				name:  fmt.Sprintf("%s.%s", item.oriname, format),
-				data:  conllu2image(alpino.Conllu.Conllu, extended, format, tempfile),
+				data:  conllu2image(ud, extended, format, tempfile),
 				match: make([]string, 0),
 			}
 		}
