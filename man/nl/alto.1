@@ -433,12 +433,12 @@ Met de actie \fBvm:png\fP doe je bijna hetzelfde als met \fBvt:png\fP,
 naar nu sla je alleen de subboom op van de matchende node. De optie
 \fB-n\fP heeft geen effect.
 .TP
-\fBalto \fIcorpus.dact\fP \fBds:ud vu:png -o\fP \fIoutput\fP
-Met \fBds:ud\fP voeg je Universal Dependencies toe. Met \fBvu:png\fP
-maak je daar PNG-afbeeldingen van. Bestanden waarvoor het afleiden van
-UD mislukt worden overgeslagen. Behalve
-\fBpng\fP kun je ook deze uitvoerformaten kiezen:
-\fBsvg\fP, \fBeps\fP, \fBpdf\fP.
+\fBalto \fIcorpus.dact\fP \fBvu:png -o\fP \fIoutput\fP
+Met \fBvu:png\fP maak je een PNG-afbeelding van de Universal
+Dependencies. Bevat de invoer al UD, dan worden die gebruikt, anders
+worden ze alsnog afgeleid. Bestanden waarvoor het afleiden van UD
+mislukt worden overgeslagen. Behalve \fBpng\fP kun je ook deze
+uitvoerformaten kiezen: \fBsvg\fP, \fBeps\fP, \fBpdf\fP.
 .TP
 \fBalto \fIcorpus.dact\fP \fBds:ud vx:png -o\fP \fIoutput\fP
 Met \fBvx:png\fP maak je PNG-afbeeldingen van de Extended Universal
