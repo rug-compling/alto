@@ -71,21 +71,109 @@ type TreeContext struct {
 	fp       io.Writer
 }
 
+type Node struct {
+	node     *alpinods.Node
+	cat      string
+	pos      string
+	pt       string
+	word     string
+	nodelist []*alpinods.Node
+}
+
+func leeg(node *alpinods.Node) bool {
+	return node.Word == "" && (node.Node == nil || len(node.Node) == 0)
+}
+
 func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 	cFormat := C.CString(format)
 	for item := range chIn {
+		var alpino alpinods.AlpinoDS
+		x(xml.Unmarshal([]byte(item.data), &alpino))
 		if subtree {
+			indexed := make(map[int]*alpinods.Node)
+			var f1 func(*alpinods.Node)
+			f1 = func(node *alpinods.Node) {
+				if node.Index > 0 && !leeg(node) {
+					indexed[node.Index] = node
+				}
+				if node.Node != nil {
+					for _, n := range node.Node {
+						f1(n)
+					}
+				}
+			}
+			f1(alpino.Node)
 			for i, match := range item.match {
+				var subnode alpinods.Node
+				x(xml.Unmarshal([]byte(match), &subnode))
+				save := make([]Node, 0)
+				count := make(map[int]int)
+				seen := make(map[int]bool)
+				var f2 func(*alpinods.Node)
+				f2 = func(node *alpinods.Node) {
+					if node.Index > 0 {
+						if _, ok := count[node.Index]; !ok {
+							count[node.Index] = 0
+						}
+						count[node.Index]++
+						if leeg(node) {
+							if !seen[node.Index] {
+								save = append(save, Node{
+									node:     node,
+									nodelist: []*alpinods.Node{},
+								})
+								n := indexed[node.Index]
+								node.Cat = n.Cat
+								node.Pos = n.Pos
+								node.Pt = n.Pt
+								node.Word = n.Word
+								node.Node = n.Node
+							}
+						} else {
+							if seen[node.Index] {
+								save = append(save, Node{
+									node:     node,
+									cat:      node.Cat,
+									pos:      node.Pos,
+									pt:       node.Pt,
+									word:     node.Word,
+									nodelist: node.Node,
+								})
+								node.Word = ""
+								node.Cat = ""
+								node.Pt = ""
+								node.Node = []*alpinods.Node{}
+							}
+						}
+						seen[node.Index] = true
+					}
+					if node.Node != nil {
+						for _, n := range node.Node {
+							f2(n)
+						}
+					}
+				}
+				if len(indexed) > 0 {
+					f2(&subnode)
+				}
 				chOut <- Item{
 					name:  fmt.Sprintf("%s.%d.%s", item.oriname, i+1, format),
-					data:  getTree(item.data, match, cFormat, format == "dot"),
+					data:  getTree(&subnode, alpino.Sentence.Sentence, cFormat, format == "dot"),
 					match: make([]string, 0),
+				}
+				for _, sn := range save {
+					sn.node.Cat = sn.cat
+					sn.node.Pos = sn.pos
+					sn.node.Pt = sn.pt
+					sn.node.Word = sn.word
+					sn.node.Node = sn.nodelist
+
 				}
 			}
 		} else {
 			chOut <- Item{
 				name:  fmt.Sprintf("%s.%s", item.oriname, format),
-				data:  getTree(item.data, "", cFormat, format == "dot"),
+				data:  getTree(alpino.Node, alpino.Sentence.Sentence, cFormat, format == "dot"),
 				match: make([]string, 0),
 			}
 		}
@@ -93,120 +181,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 	close(chOut)
 }
 
-func expandTree(alpino *alpinods.AlpinoDS) bool {
-	indexed := make(map[int]*alpinods.Node)
-
-	var f func(*alpinods.Node)
-	f = func(node *alpinods.Node) {
-		if node.Index > 0 && (node.Word != "" || (node.Node != nil && len(node.Node) > 0)) {
-			indexed[node.Index] = node
-		}
-		if node.Node != nil {
-			for _, n := range node.Node {
-				f(n)
-			}
-		}
-	}
-	f(alpino.Node)
-	if len(indexed) == 0 {
-		return false
-	}
-
-	f = func(node *alpinods.Node) {
-		if node.Index > 0 && node.Word == "" && (node.Node == nil || len(node.Node) == 0) {
-			nn := indexed[node.Index]
-			node.Cat = nn.Cat
-			node.Pos = nn.Pos
-			node.Pt = nn.Pt
-			node.Word = nn.Word
-			node.Node = nn.Node
-		}
-		if node.Node != nil {
-			for _, n := range node.Node {
-				f(n)
-			}
-		}
-	}
-	f(alpino.Node)
-	return true
-}
-
-func getSubtree(node *alpinods.Node, id int) *alpinods.Node {
-	if node.ID == id {
-		return node
-	}
-	if node.Node != nil {
-		for _, n := range node.Node {
-			if n2 := getSubtree(n, id); n2 != nil {
-				return n2
-			}
-		}
-	}
-	return nil
-}
-
-func trimTree(node *alpinods.Node) {
-	indexed := make(map[int]int)
-	var f func(*alpinods.Node)
-	f = func(node *alpinods.Node) {
-		if node.Index > 0 {
-			if _, ok := indexed[node.Index]; !ok {
-				indexed[node.Index] = 0
-			}
-			indexed[node.Index]++
-		}
-		if node.Node != nil {
-			for _, n := range node.Node {
-				f(n)
-			}
-		}
-	}
-	f(node)
-
-	seen := make(map[int]bool)
-	f = func(node *alpinods.Node) {
-		if node.Index > 0 {
-			if indexed[node.Index] == 1 {
-				node.Index = 0
-			} else {
-				if seen[node.Index] {
-					node.Cat = ""
-					node.Pt = ""
-					node.Pos = ""
-					node.Word = ""
-					node.Node = []*alpinods.Node{}
-				} else {
-					seen[node.Index] = true
-				}
-			}
-		}
-		if node.Node != nil {
-			for _, n := range node.Node {
-				f(n)
-			}
-		}
-	}
-	f(node)
-}
-
-func getTree(data string, subtree string, cFormat *C.char, wantDot bool) string {
-	var alpino alpinods.AlpinoDS
-	var node alpinods.Node
-	x(xml.Unmarshal([]byte(data), &alpino))
-	sentence := alpino.Sentence.Sentence
-	if subtree == "" {
-		node = *alpino.Node
-	} else {
-		var n alpinods.Node
-		x(xml.Unmarshal([]byte(subtree), &n))
-		if expandTree(&alpino) {
-			node = *getSubtree(alpino.Node, n.ID)
-			trimTree(&node)
-		} else {
-			node = n
-		}
-	}
-
+func getTree(node *alpinods.Node, sentence string, cFormat *C.char, wantDot bool) string {
 	ctx := &TreeContext{
 		//              marks:    make(map[string]bool), // node met vette rand en edges van en naar de node, inclusief coindex
 		refs:  make(map[string]bool),
@@ -227,12 +202,12 @@ func getTree(data string, subtree string, cFormat *C.char, wantDot bool) string 
 `)
 
 	// Nodes
-	print_nodes(ctx, &node)
+	print_nodes(ctx, node)
 
 	// Terminals
 	ctx.graph.WriteString("\n    node [fontname=\"Helvetica-Oblique\", shape=box, color=\"#d3d3d3\", style=filled];\n\n")
 	ctx.start = node.Begin
-	terms := print_terms(ctx, &node)
+	terms := print_terms(ctx, node)
 	sames := strings.Split(strings.Join(terms, " "), "|")
 	for _, same := range sames {
 		same = strings.TrimSpace(same)
@@ -243,7 +218,7 @@ func getTree(data string, subtree string, cFormat *C.char, wantDot bool) string 
 
 	// Edges
 	ctx.graph.WriteString("\n    edge [sametail=true, color=\"#d3d3d3\"];\n\n")
-	print_edges(ctx, &node)
+	print_edges(ctx, node)
 
 	ctx.graph.WriteString("}\n")
 
