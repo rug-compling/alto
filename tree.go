@@ -73,6 +73,7 @@ type TreeContext struct {
 
 type Node struct {
 	node     *alpinods.Node
+	index    int
 	cat      string
 	pos      string
 	pt       string
@@ -93,6 +94,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 			indexed := make(map[int]*alpinods.Node)
 			var f1 func(*alpinods.Node)
 			f1 = func(node *alpinods.Node) {
+				node.Data = nil
 				if node.Index > 0 && !leeg(node) {
 					indexed[node.Index] = node
 				}
@@ -117,11 +119,12 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 						}
 						count[node.Index]++
 						if leeg(node) {
+							save = append(save, Node{
+								node:     node,
+								index:    node.Index,
+								nodelist: []*alpinods.Node{},
+							})
 							if !seen[node.Index] {
-								save = append(save, Node{
-									node:     node,
-									nodelist: []*alpinods.Node{},
-								})
 								n := indexed[node.Index]
 								node.Cat = n.Cat
 								node.Pos = n.Pos
@@ -130,15 +133,16 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 								node.Node = n.Node
 							}
 						} else {
+							save = append(save, Node{
+								node:     node,
+								index:    node.Index,
+								cat:      node.Cat,
+								pos:      node.Pos,
+								pt:       node.Pt,
+								word:     node.Word,
+								nodelist: node.Node,
+							})
 							if seen[node.Index] {
-								save = append(save, Node{
-									node:     node,
-									cat:      node.Cat,
-									pos:      node.Pos,
-									pt:       node.Pt,
-									word:     node.Word,
-									nodelist: node.Node,
-								})
 								node.Word = ""
 								node.Cat = ""
 								node.Pt = ""
@@ -153,8 +157,20 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 						}
 					}
 				}
+				var f3 func(node *alpinods.Node)
+				f3 = func(node *alpinods.Node) {
+					if count[node.Index] == 1 {
+						node.Index = 0
+					}
+					if node.Node != nil {
+						for _, n := range node.Node {
+							f3(n)
+						}
+					}
+				}
 				if len(indexed) > 0 {
 					f2(&subnode)
+					f3(&subnode)
 				}
 				chOut <- Item{
 					name:  fmt.Sprintf("%s.%d.%s", item.oriname, i+1, format),
@@ -162,6 +178,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 					match: make([]string, 0),
 				}
 				for _, sn := range save {
+					sn.node.Index = sn.index
 					sn.node.Cat = sn.cat
 					sn.node.Pos = sn.pos
 					sn.node.Pt = sn.pt
