@@ -75,8 +75,8 @@ type Node struct {
 	node     *alpinods.Node
 	index    int
 	cat      string
-	pos      string
 	pt       string
+	pos      string
 	word     string
 	nodelist []*alpinods.Node
 }
@@ -91,6 +91,8 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 		var alpino alpinods.AlpinoDS
 		x(xml.Unmarshal([]byte(item.data), &alpino))
 		if subtree {
+			// subtree van elke match
+			// nodes met index uit de hele boom bewaren
 			indexed := make(map[int]*alpinods.Node)
 			var f1 func(*alpinods.Node)
 			f1 = func(node *alpinods.Node) {
@@ -114,38 +116,45 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 				var f2 func(*alpinods.Node)
 				f2 = func(node *alpinods.Node) {
 					if node.Index > 0 {
+						// tel hoe vaak deze index voorkomt
 						if _, ok := count[node.Index]; !ok {
 							count[node.Index] = 0
 						}
 						count[node.Index]++
 						if leeg(node) {
+							// oude waarde van lege indexnode bewaren
 							save = append(save, Node{
 								node:     node,
 								index:    node.Index,
 								nodelist: []*alpinods.Node{},
 							})
+							// als deze index niet eerder gezien, dan lege node invullen
 							if !seen[node.Index] {
 								n := indexed[node.Index]
 								node.Cat = n.Cat
-								node.Pos = n.Pos
 								node.Pt = n.Pt
+								node.Pos = n.Pos
 								node.Word = n.Word
 								node.Node = n.Node
 							}
 						} else {
+							// oude waarde van niet-lege indexnode bewaren
 							save = append(save, Node{
 								node:     node,
 								index:    node.Index,
 								cat:      node.Cat,
-								pos:      node.Pos,
 								pt:       node.Pt,
+								pos:      node.Pos,
 								word:     node.Word,
 								nodelist: node.Node,
 							})
 							if seen[node.Index] {
-								node.Word = ""
+								// als we deze indexnode al eerder hebben gezien, dan leegmaken
+								// zou niet voor moeten komen, maar voor alle zekerheid...
 								node.Cat = ""
 								node.Pt = ""
+								node.Pos = ""
+								node.Word = ""
 								node.Node = []*alpinods.Node{}
 							}
 						}
@@ -159,6 +168,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 				}
 				var f3 func(node *alpinods.Node)
 				f3 = func(node *alpinods.Node) {
+					// als index maar 1 keer gebruikt wordt in subtree, dan verwijderen.
 					if count[node.Index] == 1 {
 						node.Index = 0
 					}
@@ -177,6 +187,11 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 					data:  getTree(&subnode, alpino.Sentence.Sentence, cFormat, format == "dot"),
 					match: make([]string, 0),
 				}
+				/*
+					alles herstellen omdat op dit punt niet meer bekend is
+					welke node uit de subtree komt (geen herstel nodig), en
+					welke uit de complete boom (wel herstel nodig)
+				*/
 				for _, sn := range save {
 					sn.node.Index = sn.index
 					sn.node.Cat = sn.cat
@@ -188,6 +203,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 				}
 			}
 		} else {
+			// de hele boom
 			chOut <- Item{
 				name:  fmt.Sprintf("%s.%s", item.oriname, format),
 				data:  getTree(alpino.Node, alpino.Sentence.Sentence, cFormat, format == "dot"),
