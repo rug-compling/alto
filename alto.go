@@ -59,6 +59,7 @@ var (
 	cFILENAME   = C.CString("filename")
 
 	verbose       = true
+	overwrite     = false
 	macrofile     = ""
 	showExpansion = false
 	replace       = false
@@ -90,6 +91,7 @@ Usage: %s (option | action | filename) ...
 Options:
 
     -e              : show macro-expansion
+    -f              : overwrite existing files
     -i              : read input filenames from stdin
     -m filename     : use this macrofile for xpath
                       (or use environment variable ALTO_MACROFILE)
@@ -204,6 +206,8 @@ func main() {
 			switch arg {
 			case "-e":
 				showExpansion = true
+			case "-f":
+				overwrite = true
 			case "-h":
 				usage()
 				return
@@ -883,10 +887,15 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 
 func writeCompact(chIn <-chan Item, outfile string) {
 	seen := make(map[string]bool)
-	outfile = strings.TrimSuffix(outfile, ".data.gz")
+	outfile = strings.TrimSuffix(outfile, ".data.dz")
 	outfile = strings.TrimSuffix(outfile, ".index")
-	mustNotExist(outfile + ".data.dz")
-	mustNotExist(outfile + ".index")
+	if overwrite {
+		os.Remove(outfile + ".data.dz")
+		os.Remove(outfile + ".index")
+	} else {
+		mustNotExist(outfile + ".data.dz")
+		mustNotExist(outfile + ".index")
+	}
 	corpus, err := compactcorpus.NewCorpus(outfile)
 	x(err)
 	for item := range chIn {
@@ -904,7 +913,9 @@ func writeCompact(chIn <-chan Item, outfile string) {
 func writeDact(chIn <-chan Item, outfile string) {
 	// runtime.LockOSThread()
 
-	if !replace {
+	if overwrite {
+		os.Remove(outfile)
+	} else if !replace {
 		mustNotExist(outfile)
 	}
 	db, err := dbxml.OpenReadWrite(outfile)
@@ -917,7 +928,9 @@ func writeDact(chIn <-chan Item, outfile string) {
 }
 
 func writeZip(chIn <-chan Item, outfile string) {
-	mustNotExist(outfile)
+	if !overwrite {
+		mustNotExist(outfile)
+	}
 	fp, err := os.Create(outfile)
 	x(err)
 	w := zip.NewWriter(fp)
@@ -933,7 +946,9 @@ func writeZip(chIn <-chan Item, outfile string) {
 }
 
 func writeTxt(chIn <-chan Item, outfile string) {
-	mustNotExist(outfile)
+	if !overwrite {
+		mustNotExist(outfile)
+	}
 	fp, err := os.Create(outfile)
 	x(err)
 	for item := range chIn {
@@ -960,17 +975,22 @@ func writeStdout(chIn <-chan Item) {
 }
 
 func writeDir(chIn <-chan Item, outdir string) {
-	entries, err := os.ReadDir(outdir)
-	x(err)
-	if len(entries) > 0 {
-		x(fmt.Errorf("Directory %q is not empty", outdir))
+	x(os.MkdirAll(outdir, 0777))
+	if !overwrite {
+		entries, err := os.ReadDir(outdir)
+		x(err)
+		if len(entries) > 0 {
+			x(fmt.Errorf("Directory %q is not empty", outdir))
+		}
 	}
+	seen := make(map[string]bool)
 	for item := range chIn {
 		outfile := filepath.Join(outdir, item.name)
-		x(os.MkdirAll(filepath.Dir(outfile), 0777))
-		if _, err := os.Stat(outfile); err == nil {
-			x(fmt.Errorf("File exists: %s", outfile))
+		if seen[outfile] {
+			x(fmt.Errorf("Duplicate filename: %s", outfile))
 		}
+		seen[outfile] = true
+		x(os.MkdirAll(filepath.Dir(outfile), 0777))
 		fp, err := os.Create(outfile)
 		x(err)
 		_, err = fp.WriteString(item.data)
