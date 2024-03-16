@@ -400,7 +400,17 @@ func conllu2image(conllu string, enhanced bool, format string, tempfile string) 
 
 		if TESTING {
 			fmt.Fprintf(&fp, "<rect x=\"0\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"green\" />\n", width, height)
+		} else {
+			fmt.Fprintf(&fp, "<rect x=\"0\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"white\" />\n", width, height)
 		}
+	} else {
+		if TESTING {
+			surface.SetSourceRGBA(0, .5, 0, 1)
+		} else {
+			surface.SetSourceRGBA(1, 1, 1, 1)
+		}
+		surface.Rectangle(0, 0, float64(width), float64(height))
+		surface.Fill()
 	}
 
 	// edges
