@@ -787,7 +787,7 @@ func transformLibXSLT(chIn <-chan Item, chOut chan<- Item, useMatch bool, style 
 
 			if !item.transformed {
 				item.transformed = true
-				item.name += ".t"
+				item.name = trimXML(item.name) + ".t"
 			}
 
 			params := []xslt.Parameter{
@@ -835,7 +835,7 @@ func transformStylesheet(chIn <-chan Item, chOut chan<- Item, lang C.Language, u
 
 			if !item.transformed {
 				item.transformed = true
-				item.name += ".t"
+				item.name = trimXML(item.name) + ".t"
 			}
 
 			var cs *C.char
@@ -1334,4 +1334,11 @@ func untabify(s string) string {
 		}
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func trimXML(s string) string {
+	if strings.HasSuffix(s, ".xml") {
+		return s[:len(s)-4]
+	}
+	return s
 }

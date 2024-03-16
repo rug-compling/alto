@@ -115,7 +115,7 @@ func vizUD(chIn <-chan Item, chOut chan<- Item, extended bool, format string) {
 		}
 		if ud != "" {
 			chOut <- Item{
-				name:  fmt.Sprintf("%s.%s", item.oriname, format),
+				name:  fmt.Sprintf("%s.%s", trimXML(item.oriname), format),
 				data:  conllu2image(ud, extended, format, tempfile),
 				match: make([]string, 0),
 			}

@@ -143,7 +143,7 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 
 		if !item.transformed {
 			item.transformed = true
-			item.name += ".t"
+			item.name = trimXML(item.name) + ".t"
 		}
 
 		var out bytes.Buffer

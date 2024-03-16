@@ -183,7 +183,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 					f3(&subnode)
 				}
 				chOut <- Item{
-					name:  fmt.Sprintf("%s.%d.%s", item.oriname, i+1, format),
+					name:  fmt.Sprintf("%s.%d.%s", trimXML(item.oriname), i+1, format),
 					data:  getTree(&subnode, alpino.Sentence.Sentence, cFormat, format == "dot"),
 					match: make([]string, 0),
 				}
@@ -205,7 +205,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 		} else {
 			// de hele boom
 			chOut <- Item{
-				name:  fmt.Sprintf("%s.%s", item.oriname, format),
+				name:  fmt.Sprintf("%s.%s", trimXML(item.oriname), format),
 				data:  getTree(alpino.Node, alpino.Sentence.Sentence, cFormat, format == "dot"),
 				match: make([]string, 0),
 			}
