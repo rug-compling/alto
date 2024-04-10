@@ -62,6 +62,7 @@ var (
 	overwrite     = false
 	macrofile     = ""
 	showExpansion = false
+	exprToExpand  = ""
 	replace       = false
 	markMatch     = false
 	readStdin     = false
@@ -90,7 +91,7 @@ Usage: %s (option | action | filename) ...
 
 Options:
 
-    -e              : show macro-expansion
+    -e expression   : show macro-expansion, and exit
     -f              : overwrite existing files
     -i              : read input filenames from stdin
     -m filename     : use this macrofile for xpath
@@ -205,7 +206,13 @@ func main() {
 		if strings.HasPrefix(arg, "-") {
 			switch arg {
 			case "-e":
+				i++
+				if i == len(os.Args) {
+					fmt.Fprintln(os.Stderr, "Missing expression for option -e")
+					return
+				}
 				showExpansion = true
+				exprToExpand = os.Args[i]
 			case "-f":
 				overwrite = true
 			case "-h":
@@ -262,6 +269,11 @@ func main() {
 		} else {
 			inputfiles = append(inputfiles, arg)
 		}
+	}
+
+	if showExpansion {
+		expandMacros(exprToExpand)
+		return
 	}
 
 	if replace {

@@ -4,14 +4,14 @@ alto \- \fBAL\fPpino \fBTO\fPolkit
 .SH SAMENVATTING
 \fBalto\fP (\fIoptie\fP | \fIactie\fP | \fIbestand\fP) ...
 .SH BESCHRIJVING
-\fBalto\fP is een toolkit voor het werken met bestanden en corpora in het
-formaat zoals dat gebruikt wordt door Alpino. Je kunt losse bestanden
-samenvoegen tot een corpus, je kunt een corpus omzetten naar een ander soort corpus,
-je kunt zoeken, transformeren, etc.
+\fBalto\fP is een toolkit voor het werken met \fIAlpino dependency
+structures\fP, kortweg Alpino-bestanden. Je kunt losse bestanden
+samenvoegen tot een corpus, je kunt een corpus omzetten naar een ander
+soort corpus, je kunt zoeken, transformeren, visualiseren, etc.
 .SH OPTIES
 .TP
-\fB-e\fP
-show macro-expansion
+\fB-e\fP \fIexpression\fP
+show macro-expansion, and exit
 .TP
 \fB-f\fP
 overwrite existing files
@@ -230,6 +230,10 @@ Voor de syntax van het macrobestand, zie:
 .nf
 https://rug-compling.github.io/dact/manual/#macros
 .fi
+.TP
+\fBalto -e\fP \fI'//node[%my_macro%]'\fP \fB-m\fP \fImacrofile\fP
+Dit laat de XPath-expressie zien na substitie van macro's. Gebruik dit
+om te testen.
 .PP
 Je kunt de actie \fBfp:\fP meerdere keren gebruiken, eerst met een
 simpele expressie om het zoeken te beperken tot een klein aantal
@@ -237,9 +241,6 @@ XML-bestanden in het corpus, daarna een tweede, mogelijk tijdrovende
 expressie voor het eindresultaat.
 
 Een aantal opties beïnvloeden het zoeken en filteren:
-.TP
-\fB-e\fP
-Toon de XPATH-expressie met geëxpandeerde macro's.
 .TP
 \fB-m\fP \fIfilename\fP
 Lees definities van macro's uit bestand \fIfilename\fP.
