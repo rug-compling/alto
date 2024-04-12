@@ -80,6 +80,7 @@ var (
 	macroRE       = regexp.MustCompile(`([a-zA-Z][_a-zA-Z0-9]*)\s*=\s*"""((?s:.*?))"""`)
 	macroKY       = regexp.MustCompile(`%[a-zA-Z][_a-zA-Z0-9]*%`)
 	macroCOM      = regexp.MustCompile(`(?m:^\s*#.*)`)
+	reSpace       = regexp.MustCompile(`[ \t\r\n]+`)
 	x             = util.CheckErr
 )
 
@@ -655,6 +656,8 @@ func doMinimal(chIn <-chan Item, chOut chan<- Item) {
 func filterXpath(chIn <-chan Item, chOut chan<- Item, xp string) {
 	var expr *xpath.Expression
 
+	xp = reSpace.ReplaceAllLiteralString(xp, " ")
+
 	for item := range chIn {
 		if item.skipfilter {
 			// eerste filter is toegepast bij lezen vanuit dbxml-bestand
@@ -729,7 +732,9 @@ func filterXpath2(chIn <-chan Item, chOut chan<- Item, xpath string) {
 			os.Remove(filename)
 		}
 
-		if C.xq_error(result) == 0 {
+		if C.xq_error(result) != 0 {
+			x(fmt.Errorf("xqilla error"))
+		} else {
 			item.match = make([]string, 0)
 			for _, m := range strings.Split(C.GoString(C.xq_text(result)), DEVIDER) {
 				if len(m) > 0 {
@@ -1307,17 +1312,23 @@ func expandMacros(s string) string {
 			os.Exit(1)
 		}
 		if showExpansion {
-			fmt.Printf("%d: %s\n", i, s)
+			fmt.Printf("%d:\n%s\n", i, s)
 			fmt.Println(strings.Repeat("-", 72))
 		}
-		s2 := macroKY.ReplaceAllStringFunc(s, func(match string) string {
-			r, ok := macros[match]
-			if !ok {
-				fmt.Fprintln(os.Stderr, "Undefined macro:", match)
-				os.Exit(1)
-			}
-			return r
-		})
+		lss := strings.Split(s, "\n")
+		for i, ls := range lss {
+			lss[i] = macroKY.ReplaceAllStringFunc(ls, func(match string) string {
+				r, ok := macros[match]
+				if !ok {
+					fmt.Fprintln(os.Stderr, "Undefined macro:", match)
+					os.Exit(1)
+				}
+				n := strings.Index(lss[i], match)
+				r = strings.Replace(r, "\n", "\n"+strings.Repeat(" ", n), -1)
+				return r
+			})
+		}
+		s2 := strings.Join(lss, "\n")
 		if s == s2 {
 			break
 		}
@@ -1327,9 +1338,19 @@ func expandMacros(s string) string {
 	return s
 }
 
+// TODO: dit kan beter!
 func untabify(s string) string {
+	ss := strings.Split(s, "\n")
+	for len(ss) > 0 && strings.TrimSpace(ss[0]) == "" {
+		ss = ss[1:]
+	}
+	for n := len(ss); n > 0 && strings.TrimSpace(ss[n-1]) == ""; n = len(ss) {
+		ss = ss[:n-1]
+	}
+	s = strings.Join(ss, "\n")
 	var b bytes.Buffer
 	i := 0
+	minindent := 99999
 	for _, chr := range s {
 		i++
 		if chr == '\n' {
@@ -1341,11 +1362,22 @@ func untabify(s string) string {
 				i++
 				b.WriteRune(' ')
 			}
+		} else if chr == ' ' {
+			b.WriteRune(' ')
 		} else {
 			b.WriteRune(chr)
+			if i < minindent {
+				minindent = i
+			}
 		}
 	}
-	return strings.TrimSpace(b.String())
+	s = b.String()
+	minindent--
+	if minindent > 1 {
+		s = s[minindent:]
+		s = strings.Replace(s, "\n"+strings.Repeat(" ", minindent), "\n", -1)
+	}
+	return strings.TrimRight(s, " \n")
 }
 
 func trimXML(s string) string {
