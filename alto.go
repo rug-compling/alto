@@ -1298,12 +1298,12 @@ func expandMacros(s string) string {
 			s := strings.Replace(set[2], "\r\n", "\n", -1)
 			s = strings.Replace(s, "\n\r", "\n", -1)
 			s = strings.Replace(s, "\r", "\n", -1)
-			macros["%"+set[1]+"%"] = untabify(s)
+			macros["%"+set[1]+"%"] = strings.TrimSpace(s)
 		}
 	}
 
 	if showExpansion {
-		fmt.Println(strings.Repeat("=", 72))
+		fmt.Println(strings.Repeat("-", 72))
 	}
 	original := s
 	for i := 0; ; i++ {
@@ -1312,23 +1312,17 @@ func expandMacros(s string) string {
 			os.Exit(1)
 		}
 		if showExpansion {
-			fmt.Printf("%d:\n%s\n", i, s)
+			fmt.Printf("%d:\n%s\n", i, xpathFormat(s))
 			fmt.Println(strings.Repeat("-", 72))
 		}
-		lss := strings.Split(s, "\n")
-		for i, ls := range lss {
-			lss[i] = macroKY.ReplaceAllStringFunc(ls, func(match string) string {
-				r, ok := macros[match]
-				if !ok {
-					fmt.Fprintln(os.Stderr, "Undefined macro:", match)
-					os.Exit(1)
-				}
-				n := strings.Index(lss[i], match)
-				r = strings.Replace(r, "\n", "\n"+strings.Repeat(" ", n), -1)
-				return r
-			})
-		}
-		s2 := strings.Join(lss, "\n")
+		s2 := macroKY.ReplaceAllStringFunc(s, func(match string) string {
+			r, ok := macros[match]
+			if !ok {
+				fmt.Fprintln(os.Stderr, "Undefined macro:", match)
+				os.Exit(1)
+			}
+			return r
+		})
 		if s == s2 {
 			break
 		}
@@ -1338,51 +1332,138 @@ func expandMacros(s string) string {
 	return s
 }
 
-// TODO: dit kan beter!
-func untabify(s string) string {
-	ss := strings.Split(s, "\n")
-	for len(ss) > 0 && strings.TrimSpace(ss[0]) == "" {
-		ss = ss[1:]
-	}
-	for n := len(ss); n > 0 && strings.TrimSpace(ss[n-1]) == ""; n = len(ss) {
-		ss = ss[:n-1]
-	}
-	s = strings.Join(ss, "\n")
-	var b bytes.Buffer
-	i := 0
-	minindent := 99999
-	for _, chr := range s {
-		i++
-		if chr == '\n' {
-			i = 0
-			b.WriteRune('\n')
-		} else if chr == '\t' {
-			b.WriteRune(' ')
-			for (i % 8) != 0 {
-				i++
-				b.WriteRune(' ')
-			}
-		} else if chr == ' ' {
-			b.WriteRune(' ')
-		} else {
-			b.WriteRune(chr)
-			if i < minindent {
-				minindent = i
-			}
-		}
-	}
-	s = b.String()
-	minindent--
-	if minindent > 0 {
-		s = s[minindent:]
-		s = strings.Replace(s, "\n"+strings.Repeat(" ", minindent), "\n", -1)
-	}
-	return strings.TrimRight(s, " \n")
-}
-
 func trimXML(s string) string {
 	if strings.HasSuffix(s, ".xml") {
 		return s[:len(s)-4]
 	}
 	return s
+}
+
+func xpathFormat(expr string) string {
+	var b bytes.Buffer
+	p := 0
+	inSingle := false
+	inDouble := false
+	inString := false
+	inLeading := true
+	opening := 0
+	started := false
+	indents := make([][2]int, 0)
+	indent := ""
+	for ri, rune := range expr {
+		if !started {
+			if rune == ' ' || rune == '\t' || rune == '\n' {
+				continue
+			}
+			started = true
+		}
+		switch rune {
+		case '\n':
+			opening = 0
+			ind := [2]int{0, 0}
+			if n := len(indents); n > 0 {
+				ind = indents[n-1]
+			}
+			b.WriteString("\n" + strings.Repeat(" ", ind[0]))
+			p = ind[0]
+			indent = strings.Repeat(" ", ind[1])
+			inLeading = true
+		case '\t':
+			if !inLeading {
+				switch opening {
+				case 0:
+					b.WriteRune(' ')
+					p++
+					for p%8 != 0 {
+						b.WriteRune(' ')
+						p++
+					}
+				case 1:
+					b.WriteString("   ")
+					p += 3
+					opening = 2
+				case 2:
+					// skip
+				}
+			}
+		case ' ':
+			if !inLeading {
+				switch opening {
+				case 0:
+					b.WriteRune(' ')
+					p++
+				case 1:
+					b.WriteString("   ")
+					p += 3
+					opening = 2
+				case 2:
+					// skip
+				}
+			}
+		case '\'':
+			opening = 0
+			if inLeading {
+				inLeading = false
+				b.WriteString(indent)
+				p += len(indent)
+			}
+			if !inDouble {
+				inSingle = !inSingle
+				inString = !inString
+			}
+			b.WriteRune(rune)
+			p++
+		case '"':
+			opening = 0
+			if inLeading {
+				inLeading = false
+				b.WriteString(indent)
+				p += len(indent)
+			}
+			if !inSingle {
+				inDouble = !inDouble
+				inString = !inString
+			}
+			b.WriteRune(rune)
+			p++
+		case '[', '(':
+			if inLeading {
+				inLeading = false
+				b.WriteString(indent)
+				p += len(indent)
+			}
+			if !inString {
+				p2 := 1
+				if ri < len(expr) {
+					if expr[ri+1] == ' ' || expr[ri+1] == '\t' || expr[ri+1] == '\n' {
+						p2 = 4
+					}
+				}
+				indents = append(indents, [2]int{p, p2})
+				opening = 1
+			}
+			b.WriteRune(rune)
+			p++
+		case ']', ')':
+			opening = 0
+			inLeading = false
+			if !inString {
+				if n := len(indents); n > 0 {
+					indents = indents[:n-1]
+				}
+			}
+			b.WriteRune(rune)
+			p++
+		default:
+			opening = 0
+			if inLeading {
+				inLeading = false
+				b.WriteString(indent)
+				p += len(indent)
+			}
+			b.WriteRune(rune)
+			p++
+		}
+	}
+	return strings.TrimRight(b.String(), "\n ")
 }
