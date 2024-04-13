@@ -1373,7 +1373,7 @@ func untabify(s string) string {
 	}
 	s = b.String()
 	minindent--
-	if minindent > 1 {
+	if minindent > 0 {
 		s = s[minindent:]
 		s = strings.Replace(s, "\n"+strings.Repeat(" ", minindent), "\n", -1)
 	}
