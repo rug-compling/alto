@@ -1287,11 +1287,9 @@ func mustNotExist(filename string) {
 }
 
 func expandMacros(s string) string {
-	if macrofile == "" {
-		return s
-	}
+	// i.v.m. showExpansion: ook alles doen als er geen macrofile is
 
-	if len(macros) == 0 {
+	if len(macros) == 0 && macrofile != "" {
 		b, err := os.ReadFile(macrofile)
 		x(err)
 		for _, set := range macroRE.FindAllStringSubmatch(macroCOM.ReplaceAllLiteralString(string(b), ""), -1) {
