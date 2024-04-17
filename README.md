@@ -14,3 +14,15 @@ visualiseren, etc.
 ## Handleiding
 
 Zie [man/nl/alto.md](man/nl/alto.md).
+
+## AppImages
+
+Bij de release zijn twee AppImages beschikbaar:
+
+- `alto-x86_64.AppImage`
+- `alto_v6-x86_64.AppImage`
+
+De eerste is gelinkt met DbXML versie 2. De tweede is gelinkt met DbXML
+versie 6. Een DACT-bestand gemaakt met DbXML versie 2 kan wel verwerkt
+worden door een programma dat DbXML versie 6 gebruikt. Maar andersom
+werkt niet.
