@@ -1,4 +1,4 @@
-.TH ALTO 1 2024-03-10 v0.3.0 "toolkit for alpino dependency structures"
+.TH ALTO 1 2024-04-17 v0.3.0 "toolkit for alpino dependency structures"
 .SH NAAM
 alto \- \fBAL\fPpino \fBTO\fPolkit
 .SH SAMENVATTING
@@ -249,7 +249,7 @@ Lees definities van macro's uit bestand \fIfilename\fP.
 Plaats een speciale markering op de nodes die matchen. Deze markering
 kan in een later stadium gebruik worden voor een transformatie.
 Zo'n markering ziet er zo uit:
-\fB<node\fP...\fB><data name="match"/>\fP...\fB</node>\fP.
+\fB<node\fP...\fB><data name="match"/>\fP...\fB</node>\fP
 .TP
 \fB-1\fP
 Gewoonlijk wordt bij het zoeken in een DACT-bestand door het eerste
@@ -264,7 +264,7 @@ een DACT-bestand wordt gezocht. Met deze optie zorg je ervoor dat altijd
 XPATH versie 2 gebruikt wordt. Dit is aanzienlijk trager dan zoeken met
 versie 1.
 .TP
-\fB-2\fp
+\fB-2\fP
 Dit combineert de opties \fB-2p\fP en \fB-2s\fP (zie beneden).
 .SS Transformeren met een stylesheet
 .TP
@@ -274,15 +274,15 @@ het script \fIstyle.xq\fP.
 .TP
 \fBalto\fP \fIinput.xml\fP \fBts:\fP\fIstyle.xsl\fP
 Transformeer de invoer met XSLT dmv
-het stylesheet \fIstyle.xsl\fB.
+het stylesheet \fIstyle.xsl\fP.
 .TP
 \fBalto\fP \fIinput.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBTq:\fP\fIstyle.xq\fP
 Transformeer de gematchte subtree met XQuery dmv
-het script \fIstyle.xq\fB.
+het script \fIstyle.xq\fP.
 .TP
 \fBalto\fP \fIinput.dact\fP \fBfp:\fP\fI'//node[@root="fiets"]'\fP \fBTs:\fP\fIstyle.xsl\fP
 Transformeer de gematchte subtree met XSLT dmv
-het stylesheet \fIstyle.xsl\fB.
+het stylesheet \fIstyle.xsl\fP.
 .PP
 Een aantal opties beïnvloeden de transformatie:
 .TP
@@ -437,14 +437,14 @@ Met de actie \fBvm:png\fP doe je bijna hetzelfde als met \fBvt:png\fP,
 naar nu sla je alleen de subboom op van de matchende node. De optie
 \fB-n\fP heeft geen effect.
 .TP
-\fBalto \fIcorpus.dact\fP \fBvu:png -o\fP \fIoutput\fP
+\fBalto\fP \fIcorpus.dact\fP \fBvu:png -o\fP \fIoutput\fP
 Met \fBvu:png\fP maak je een PNG-afbeelding van de Universal
 Dependencies. Bevat de invoer al UD, dan worden die gebruikt, anders
 worden ze alsnog afgeleid. Bestanden waarvoor het afleiden van UD
 mislukt worden overgeslagen. Behalve \fBpng\fP kun je ook deze
 uitvoerformaten kiezen: \fBsvg\fP, \fBeps\fP, \fBpdf\fP.
 .TP
-\fBalto \fIcorpus.dact\fP \fBds:ud vx:png -o\fP \fIoutput\fP
+\fBalto\fP \fIcorpus.dact\fP \fBvx:png -o\fP \fIoutput\fP
 Met \fBvx:png\fP maak je PNG-afbeeldingen van de Extended Universal
 Dependencies. Verder is dit voorbeeld gelijk aan het vorige.
 .SH ENVIRONMENT
