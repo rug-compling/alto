@@ -46,6 +46,9 @@ use XPath2 (slow)
 .TP
 \fB-2s\fP
 use XSLT2 (slow)
+.TP
+\fB-w\fP
+suppress warnings
 .SH ACTIES
 .TP
 \fBds:ud\fP
@@ -370,6 +373,15 @@ De gematche subtree als een dependency structure.
 .TP
 \fB%w\fP
 De woorden onder de matchende node.
+.TP
+\fB%l\fP
+De lemma's onder de matchende node.
+.TP
+\fB%p\fP
+De waardes van \fBpt\fP van de woorden onder de matchende node.
+.TP
+\fB%P\fP
+De waardes van \fBpostag\fP van de woorden onder de matchende node.
 .PP
 Je kunt in een vlag een getal zetten om aan te geven hoe breed de uitvoer
 moet zijn. Met een minus ervoor wordt de tekst links uitgelijnd, zonder

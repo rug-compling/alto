@@ -26,6 +26,9 @@ type Fields struct {
 	Match          string
 	Tree           string
 	Words          string
+	Lemmas         string
+	Pts            string
+	Postags        string
 	Metadata       string
 	UD             string
 }
@@ -50,6 +53,9 @@ var (
   %m  *match
   %M  *match tree
   %w  *match, words only
+  %l  *match, lemmas only
+  %p  *match, pts only
+  %P  *match, postags only
   %d  metadata
   %u  UD
 */
@@ -120,6 +126,21 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 			needWords = true
 			multi = true
 			return "{{.Words" + toS
+		case 'l':
+			needAlpino = true
+			needWords = true
+			multi = true
+			return "{{.Lemmas" + toS
+		case 'p':
+			needAlpino = true
+			needWords = true
+			multi = true
+			return "{{.Pts" + toS
+		case 'P':
+			needAlpino = true
+			needWords = true
+			multi = true
+			return "{{.Postags" + toS
 		case 'd':
 			needAlpino = true
 			needMeta = true
@@ -160,51 +181,52 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 		data.Body = item.data
 		var alpino alpinods.AlpinoDS
 		if needAlpino {
-			x(xml.Unmarshal([]byte(item.data), &alpino))
-			data.Sentid = alpino.Sentence.SentID
-			data.Sentence = alpino.Sentence.Sentence
-			if alpino.Comments != nil && alpino.Comments.Comment != nil {
-				data.Comments = strings.Join(alpino.Comments.Comment, "\n\t")
-			}
-			if needMeta && alpino.Metadata != nil && alpino.Metadata.Meta != nil {
-				metas := make([]string, len(alpino.Metadata.Meta))
-				for i, meta := range alpino.Metadata.Meta {
-					metas[i] = fmt.Sprintf("%s: %q", meta.Name, meta.Value)
+			if w(xml.Unmarshal([]byte(item.data), &alpino)) == nil {
+				data.Sentid = alpino.Sentence.SentID
+				data.Sentence = alpino.Sentence.Sentence
+				if alpino.Comments != nil && alpino.Comments.Comment != nil {
+					data.Comments = strings.Join(alpino.Comments.Comment, "\n\t")
 				}
-				data.Metadata = strings.Join(metas, ", ")
-			}
-			if needUD {
-				if alpino.Conllu == nil {
-					if item.arch != "" {
-						data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+				if needMeta && alpino.Metadata != nil && alpino.Metadata.Meta != nil {
+					metas := make([]string, len(alpino.Metadata.Meta))
+					for i, meta := range alpino.Metadata.Meta {
+						metas[i] = fmt.Sprintf("%s: %q", meta.Name, meta.Value)
 					}
-					ud, err := alud.Ud([]byte(item.data), item.oriname, alpino.Sentence.SentID, alud.OPT_DUMMY_OUTPUT)
-					if err == nil {
-						data.UD += ud
+					data.Metadata = strings.Join(metas, ", ")
+				}
+				if needUD {
+					if alpino.Conllu == nil {
+						if item.arch != "" {
+							data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+						}
+						ud, err := alud.Ud([]byte(item.data), item.oriname, alpino.Sentence.SentID, alud.OPT_DUMMY_OUTPUT)
+						if err == nil {
+							data.UD += ud
+						} else {
+							e := err.Error()
+							i := strings.Index(e, "\n")
+							if i > 0 {
+								e = e[:i]
+							}
+							data.UD += fmt.Sprintf("# source = %s\n# error = %s\n\n", item.oriname, e)
+						}
+					} else if alpino.Conllu.Error != "" {
+						if item.arch != "" {
+							data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+						}
+						data.UD += fmt.Sprintf("# source = %s\n# error = %s\n\n", item.oriname, alpino.Conllu.Error)
 					} else {
-						e := err.Error()
-						i := strings.Index(e, "\n")
-						if i > 0 {
-							e = e[:i]
+						data.UD = strings.TrimLeft(alpino.Conllu.Conllu, " \t\r\n")
+						if item.arch != "" {
+							if strings.Contains(data.UD, "# source =") && !strings.Contains(data.UD, "# archive") {
+								data.UD = fmt.Sprintf("# archive = %s\n%s", item.arch, data.UD)
+							}
 						}
-						data.UD += fmt.Sprintf("# source = %s\n# error = %s\n\n", item.oriname, e)
-					}
-				} else if alpino.Conllu.Error != "" {
-					if item.arch != "" {
-						data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
-					}
-					data.UD += fmt.Sprintf("# source = %s\n# error = %s\n\n", item.oriname, alpino.Conllu.Error)
-				} else {
-					data.UD = strings.TrimLeft(alpino.Conllu.Conllu, " \t\r\n")
-					if item.arch != "" {
-						if strings.Contains(data.UD, "# source =") && !strings.Contains(data.UD, "# archive") {
-							data.UD = fmt.Sprintf("# archive = %s\n%s", item.arch, data.UD)
+						if !strings.HasSuffix(data.UD, "\n") {
+							data.UD += "\n\n"
+						} else if !strings.HasSuffix(data.UD, "\n\n") {
+							data.UD += "\n"
 						}
-					}
-					if !strings.HasSuffix(data.UD, "\n") {
-						data.UD += "\n\n"
-					} else if !strings.HasSuffix(data.UD, "\n\n") {
-						data.UD += "\n"
 					}
 				}
 			}
@@ -215,14 +237,21 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 
 			if multi {
 				var node alpinods.Node
+				ok := false
 				if needAlpino {
-					x(xml.Unmarshal([]byte(item.match[i]), &node))
+					if w(xml.Unmarshal([]byte(item.match[i]), &node)) == nil {
+						ok = true
+					}
 				}
 				if needID {
-					data.ID = node.ID
+					if ok {
+						data.ID = node.ID
+					} else {
+						data.ID = -1
+					}
 				}
 				if needWords || needMarked {
-					data.Words, data.MarkedSentence = doWords(&alpino, &node)
+					data.Words, data.Lemmas, data.Pts, data.Postags, data.MarkedSentence = doWords(&alpino, &node)
 				}
 				if needTree {
 					data.Tree = doTree(&alpino, &node)
@@ -235,8 +264,11 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 				idlist := make([]string, 0)
 				for _, match := range item.match {
 					var node alpinods.Node
-					x(xml.Unmarshal([]byte(match), &node))
-					idlist = append(idlist, fmt.Sprint(node.ID))
+					if w(xml.Unmarshal([]byte(match), &node)) == nil {
+						idlist = append(idlist, fmt.Sprint(node.ID))
+					} else {
+						idlist = []string{"NA"}
+					}
 				}
 				data.IDs = strings.Join(idlist, " ")
 			}
@@ -316,15 +348,24 @@ func doTree(alpino *alpinods.AlpinoDS, node *alpinods.Node) string {
 	return out.String()
 }
 
-func doWords(alpino *alpinods.AlpinoDS, node *alpinods.Node) (words string, sentence string) {
+func doWords(alpino *alpinods.AlpinoDS, node *alpinods.Node) (words, lemmas, pts, postags, sentence string) {
+	if alpino == nil || alpino.Node == nil {
+		return
+	}
 	nwords := alpino.Node.End
 	wordslist := make([]string, nwords)
 	use := make([]bool, nwords)
+	slemmas := make([]string, nwords)
+	spts := make([]string, nwords)
+	spostags := make([]string, nwords)
 
 	var f func(*alpinods.Node)
 	f = func(node *alpinods.Node) {
 		if node.Word != "" {
 			use[node.Begin] = true
+			slemmas[node.Begin] = node.Lemma
+			spts[node.Begin] = node.Pt
+			spostags[node.Begin] = node.Postag
 		}
 		if node.Node != nil {
 			for _, n := range node.Node {
@@ -371,22 +412,34 @@ func doWords(alpino *alpinods.AlpinoDS, node *alpinods.Node) (words string, sent
 
 	if last >= first {
 		wlist := make([]string, 0, last-first+1)
+		llist := make([]string, 0, last-first+1)
+		plist := make([]string, 0, last-first+1)
+		Plist := make([]string, 0, last-first+1)
 		inUse = true
 		for i := first; i <= last; i++ {
 			if use[i] {
 				inUse = true
 				wlist = append(wlist, swords[i])
+				llist = append(llist, slemmas[i])
+				plist = append(plist, spts[i])
+				Plist = append(Plist, spostags[i])
 			} else {
 				if inUse {
 					wlist = append(wlist, "[...]")
+					llist = append(llist, "[...]")
+					plist = append(plist, "[...]")
+					Plist = append(Plist, "[...]")
 					inUse = false
 				}
 			}
 		}
 		words = strings.Join(wlist, " ")
+		lemmas = strings.Join(llist, " ")
+		pts = strings.Join(plist, " ")
+		postags = strings.Join(Plist, " ")
 	}
 
-	return words, sentence
+	return words, lemmas, pts, postags, sentence
 }
 
 func findNodeByIndex(node *alpinods.Node, index int) *alpinods.Node {

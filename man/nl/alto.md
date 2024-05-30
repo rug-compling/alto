@@ -59,6 +59,8 @@ soort corpus, je kunt zoeken, transformeren, visualiseren, etc.
 **-2s**
 : use XSLT2 (slow)
 
+**-w**
+: suppress warnings
 
 ## Acties
 
@@ -384,6 +386,15 @@ apart getoond, behalve voor de vlag **%j**.
 
 **%w**
 : De woorden onder de matchende node.
+
+**%l**
+: De lemma's onder de matchende node.
+
+**%p**
+: De waardes van `pt` van de woorden onder de matchende node.
+
+**%P**
+: De waardes van `postag` van de woorden onder de matchende node.
 
 Je kunt in een vlag een getal zetten om aan te geven hoe breed de uitvoer
 moet zijn. Met een minus ervoor wordt de tekst links uitgelijnd, zonder

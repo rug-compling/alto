@@ -59,6 +59,7 @@ var (
 	cFILENAME   = C.CString("filename")
 
 	verbose       = true
+	warnings      = true
 	overwrite     = false
 	macrofile     = ""
 	showExpansion = false
@@ -105,6 +106,7 @@ Options:
     -2              : use XPath2 and XSLT2 (slow)
     -2p             : use XPath2 (slow)
     -2s             : use XSLT2 (slow)
+    -w              : suppress warnings
 
 Actions:
 
@@ -149,6 +151,9 @@ Template placeholders:
     %%m  match
     %%M  match as tree
     %%w  match words
+    %%l  match lemmas
+    %%p  match pts
+    %%P  match postags
     %%d  metadata
     %%u  universal dependencies
     \t  tab
@@ -189,6 +194,13 @@ Default output is stdout
 		os.Args[0],
 		os.Args[0],
 		major, minor, patch)
+}
+
+func w(err error, msg ...interface{}) error {
+	if warnings {
+		return util.WarnErr(err, msg...)
+	}
+	return err
 }
 
 func main() {
@@ -261,6 +273,8 @@ func main() {
 				version2xpath = true
 			case "-2x":
 				version2xslt = true
+			case "-w":
+				warnings = false
 			default:
 				fmt.Fprintln(os.Stderr, "Unknown option", arg)
 				return
@@ -1123,6 +1137,9 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string, xmlfile
 			// dat die dan allemaal achter elkaar zitten.
 			// Is dit zo?
 			newname := docs.Name()
+			if newname == "" {
+				newname = "UNKNOWN"
+			}
 			if name != newname {
 				j++
 				if content != "" {
@@ -1143,9 +1160,12 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string, xmlfile
 				}
 				name = newname
 				content = docs.Content()
+				if content == "" {
+					content = `<null/>`
+				}
 				match = make([]string, 0)
 			}
-			match = append(match, docs.Match())
+			match = append(match, docs.Value())
 			if verbose {
 				fmt.Fprintf(os.Stderr, " %d/%d %s -- %d/? %s        \r", i, n, infile, j, name)
 			}
