@@ -1083,6 +1083,8 @@ func readCompact(chOut chan<- Item, infile string, i, n int, xmlfiles []string) 
 func readDact(chOut chan<- Item, infile string, i, n int, filter string, xmlfiles []string) {
 	// runtime.LockOSThread()
 
+	unknown := 0
+
 	db, err := dbxml.OpenRead(infile)
 	x(err)
 	defer db.Close()
@@ -1138,7 +1140,8 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string, xmlfile
 			// Is dit zo?
 			newname := docs.Name()
 			if newname == "" {
-				newname = "UNKNOWN"
+				unknown++
+				newname = fmt.Sprintf("UNKNOWN.%d", unknown)
 			}
 			if name != newname {
 				j++
