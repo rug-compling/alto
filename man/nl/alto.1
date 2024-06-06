@@ -1,4 +1,4 @@
-.TH ALTO 1 2024-04-17 v0.3.0 "toolkit for alpino dependency structures"
+.TH ALTO 1 2024-06-12 v0.4.0 "toolkit for alpino dependency structures"
 .SH NAAM
 alto \- \fBAL\fPpino \fBTO\fPolkit
 .SH SAMENVATTING
@@ -255,20 +255,68 @@ Zo'n markering ziet er zo uit:
 \fB<node\fP...\fB><data name="match"/>\fP...\fB</node>\fP
 .TP
 \fB-1\fP
-Gewoonlijk wordt bij het zoeken in een DACT-bestand door het eerste
-filter gebruik gemaakt van XPATH versie 2. Dit is gewoonlijk het snelst,
-maar niet altijd correct. Met de optie \fB-1\fP zorg je ervoor dat
-eerst alle bestanden uit het DACT-bestand worden gelezen, en daarna
-gefilter met XPATH versie 1.
+Als default wordt bij het zoeken in een DACT-bestand door \fBhet eerste
+filter\fP gebruik gemaakt van XPATH versie 2. Dit is gewoonlijk het snelst,
+maar in zelfzame gevallen zijn de resultaten niet compleet, vanwege een
+bug in de onderliggende library (DbXML). Met de optie \fB-1\fP zorg je
+ervoor dat eerst alle bestanden uit het DACT-bestand worden gelezen, en
+daarna gefilterd met XPATH versie 1.
 .TP
 \fB-2p\fP
-Gewoonlijk wordt XPATH versie 1 gebruikt wanneer er niet rechtstreeks in
+Als default wordt XPATH versie 1 gebruikt wanneer er niet rechtstreeks in
 een DACT-bestand wordt gezocht. Met deze optie zorg je ervoor dat altijd
 XPATH versie 2 gebruikt wordt. Dit is aanzienlijk trager dan zoeken met
 versie 1.
 .TP
 \fB-2\fP
 Dit combineert de opties \fB-2p\fP en \fB-2s\fP (zie beneden).
+.PP
+Zoeken met XPATH versie 1 gebeurt door \fIlibxml2\fP. Zoeken met XPATH
+versie 2 gebeurt door \fIXQilla\fP. Deze library is veel langzamer dan
+libxml2. Daarom is de default om XPATH 1 te gebruiken, tenzij je zoekt
+in een DACT-bestand.
+
+Het lezen van een DACT-bestand gebeurt met weer een andere library,
+\fIDbXML\fP. Die library kan een DACT-bestand niet alleen openen, maar
+tegelijk ook doorzoeken met XPATH. Wanneer er weinig XML-bestanden in
+het DACT-bestand zitten die voldoen aan de XPATH-expressie, dan kan
+DbXML gewoonlijk heel snel de kanshebbers localiseren, en alleen die
+testen. Voor het testen gebruikt DbXML op zijn beurt XQilla, maar door
+de voorselectie kan dit vaak veel sneller dan alles doorzoeken met
+libxml2.
+
+Voorbeelden met DACT-bestand:
+.TP
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'expressieA'\fP \fBfp:\fP\fI'expressieB'\fP
+- Zoeken met DbXML naar \fIexpressieA\fP, XPATH versie 2.
+.br
+- Resultaat doorzoeken met libxml2 naar \fIexpressieB\fP, XPATH versie 1.
+.TP
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'expressieA'\fP \fBfp:\fP\fI'expressieB'\fP \fB-1\fP
+- Zoeken met libxml naar \fIexpressieA\fP, XPATH versie 1.
+.br
+- Resultaat doorzoeken met libxml2 naar \fIexpressieB\fP, XPATH versie 1.
+.TP
+\fBalto\fP \fIcorpus.dact\fP \fBfp:\fP\fI'expressieA'\fP \fBfp:\fP\fI'expressieB'\fP \fB-2\fP
+- Zoeken met DbXML naar \fIexpressieA\fP, XPATH versie 2.
+.br
+- Resultaat doorzoeken met XQilla naar \fIexpressieB\fP, XPATH versie 2.
+.PP
+Voorbeelden met ander bestand:
+.TP
+\fBalto\fP \fIcorpus.zip\fP \fBfp:\fP\fI'expressieA'\fP \fBfp:\fP\fI'expressieB'\fP
+- Zoeken met libxml naar \fIexpressieA\fP, XPATH versie 1.
+.br
+- Resultaat doorzoeken met libxml2 naar \fIexpressieB\fP, XPATH versie 1.
+.TP
+\fBalto\fP \fIcorpus.zip\fP \fBfp:\fP\fI'expressieA'\fP \fBfp:\fP\fI'expressieB'\fP \fB-2\fP
+- Zoeken met XQilla naar \fIexpressieA\fP, XPATH versie 2.
+.br
+- Resultaat doorzoeken met XQilla naar \fIexpressieB\fP, XPATH versie 2.
+.PP
+\fBTODO:\fP ook verschil uitleggen voor \fB//node/@word\fP en
+\fB//node/string(@word)\fP , de laatste ook het verschil tussen DbXML en
+XQilla?
 .SS Transformeren met een stylesheet
 .TP
 \fBalto\fP \fIinput.xml\fP \fBtq:\fP\fIstyle.xq\fP

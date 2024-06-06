@@ -1,6 +1,6 @@
 # alto(1)
 
-v0.3.0, 2024-04-17
+v0.4.0, 2024-06-12
 
 
 ## Naam
@@ -265,14 +265,14 @@ Een aantal opties beïnvloeden het zoeken en filteren:
 : **&lt;node**...**&gt;&lt;data name="match"/&gt;**...**&lt;/node&gt;**
 
 **-1**
-: Gewoonlijk wordt bij het zoeken in een DACT-bestand door het eerste
+: Als default wordt bij het zoeken in een DACT-bestand door het eerste
   filter gebruik gemaakt van XPATH versie 2. Dit is gewoonlijk het snelst,
   maar niet altijd correct. Met de optie **-1** zorg je ervoor dat
   eerst alle bestanden uit het DACT-bestand worden gelezen, en daarna
-  gefilter met XPATH versie 1.
+  gefilterd met XPATH versie 1.
 
 **-2p**
-: Gewoonlijk wordt XPATH versie 1 gebruikt wanneer er niet rechtstreeks in
+: Als default wordt XPATH versie 1 gebruikt wanneer er niet rechtstreeks in
   een DACT-bestand wordt gezocht. Met deze optie zorg je ervoor dat altijd
   XPATH versie 2 gebruikt wordt. Dit is aanzienlijk trager dan zoeken met
   versie 1.
@@ -280,6 +280,42 @@ Een aantal opties beïnvloeden het zoeken en filteren:
 **-2**
 : Dit combineert de opties **-2p** en **-2s** (zie beneden).
 
+Zoeken  met XPATH versie 1 gebeurt door *libxml2*. Zoeken met XPATH versie 2 gebeurt door *XQilla*. Deze
+library is veel langzamer dan libxml2. Daarom is de default om XPATH 1 te gebruiken, tenzij je zoekt
+in een DACT-bestand.
+
+Het lezen van een DACT-bestand gebeurt met weer een andere library, *DbXML*. Die library kan een DACT-
+bestand niet alleen openen, maar tegelijk ook doorzoeken met XPATH. Wanneer er weinig  XML-bestanden
+in het DACT-bestand zitten die voldoen aan de XPATH-expressie, dan kan DbXML gewoonlijk heel snel de
+kanshebbers localiseren, en alleen die testen. Voor het testen gebruikt DbXML op zijn beurt  XQilla,
+maar door de voorselectie kan dit vaak veel sneller dan alles doorzoeken met libxml2.
+
+Voorbeelden met DACT-bestand:
+
+**alto** _corpus.dact_ **fp:'**_expressieA_**' fp:'**_expressieB_**'**
+: Zoeken met DbXML naar _expressieA_, XPATH versie 2.
+: Resultaat doorzoeken met libxml2 naar _expressieB_, XPATH versie 1.
+
+**alto** _corpus.dact_ **fp:'**_expressieA_**' fp:'**_expressieB_**' -1**
+: Zoeken met libxml naar _expressieA_, XPATH versie 1.
+: Resultaat doorzoeken met libxml2 naar _expressieB_, XPATH versie 1.
+
+**alto** _corpus.dact_ **fp:'**_expressieA_**' fp:'**_expressieB_**' -2**
+: Zoeken met DbXML naar _expressieA_, XPATH versie 2.
+: Resultaat doorzoeken met XQilla naar _expressieB_, XPATH versie 2.
+
+Voorbeelden met ander bestand:
+
+**alto** _corpus.zip_ **fp:'**_expressieA_**' fp:'**_expressieB_**'**
+: Zoeken met libxml naar _expressieA_, XPATH versie 1.
+: Resultaat doorzoeken met libxml2 naar _expressieB_, XPATH versie 1.
+
+**alto** _corpus.zip_ **fp:'**_expressieA_**' fp:'**_expressieB_**' -2**
+: Zoeken met XQilla naar _expressieA_, XPATH versie 2.
+: Resultaat doorzoeken met XQilla naar _expressieB_, XPATH versie 2.
+
+**TODO:** ook verschil uitleggen voor `//node/@word` en `//node/string(@word)` , de laatste ook het verschil
+tussen DbXML en XQilla?
 
 ### Transformeren met een stylesheet
 
