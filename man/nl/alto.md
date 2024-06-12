@@ -314,9 +314,6 @@ Voorbeelden met ander bestand:
 : Zoeken met XQilla naar _expressieA_, XPATH versie 2.
 : Resultaat doorzoeken met XQilla naar _expressieB_, XPATH versie 2.
 
-**TODO:** ook verschil uitleggen voor `//node/@word` en `//node/string(@word)` , de laatste ook het verschil
-tussen DbXML en XQilla?
-
 ### Transformeren met een stylesheet
 
 **alto** _input.xml_ **tq:**_style.xq_
