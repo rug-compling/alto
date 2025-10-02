@@ -185,7 +185,9 @@ Valid output filenames:
 
 Default output is stdout
 
-%s uses DbXML version %d.%d.%d
+This is %s version %s, using:
+  - DbXML version %d.%d.%d
+  - alud version %s
 
 `,
 		os.Args[0],
@@ -193,7 +195,9 @@ Default output is stdout
 		os.Args[0],
 		os.Args[0],
 		os.Args[0],
-		major, minor, patch)
+		version,
+		major, minor, patch,
+		alud.VersionID())
 }
 
 func w(err error, msg ...interface{}) error {
@@ -1006,7 +1010,7 @@ func writeStdout(chIn <-chan Item) {
 }
 
 func writeDir(chIn <-chan Item, outdir string) {
-	x(os.MkdirAll(outdir, 0777))
+	x(os.MkdirAll(outdir, 0o777))
 	if !overwrite {
 		entries, err := os.ReadDir(outdir)
 		x(err)
@@ -1021,7 +1025,7 @@ func writeDir(chIn <-chan Item, outdir string) {
 			x(fmt.Errorf("Duplicate filename: %s", outfile))
 		}
 		seen[outfile] = true
-		x(os.MkdirAll(filepath.Dir(outfile), 0777))
+		x(os.MkdirAll(filepath.Dir(outfile), 0o777))
 		fp, err := os.Create(outfile)
 		x(err)
 		_, err = fp.WriteString(item.data)
