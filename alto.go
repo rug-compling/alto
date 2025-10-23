@@ -188,6 +188,7 @@ Default output is stdout
 This is %s version %s, using:
   - DbXML version %d.%d.%d
   - alud version %s
+  - alpino_ds.dtd version %s
 
 `,
 		os.Args[0],
@@ -197,7 +198,9 @@ This is %s version %s, using:
 		os.Args[0],
 		version,
 		major, minor, patch,
-		alud.VersionID())
+		alud.VersionID(),
+		"1.16") // TODO
+	// alud.DtdVersion())
 }
 
 func w(err error, msg ...interface{}) error {
