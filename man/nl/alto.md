@@ -1,6 +1,6 @@
 # alto(1)
 
-v0.4.2, 2025-10-02
+v0.4.3, 2025-10-25
 
 
 ## Naam
@@ -23,6 +23,12 @@ soort corpus, je kunt zoeken, transformeren, visualiseren, etc.
 
 ## Opties
 
+**-c**
+: CoNLL-U: no comments
+
+**-d**
+: CoNLL-U: no metadata
+
 **-e** _expression_
 : show macro-expansion, and exit
 
@@ -44,8 +50,20 @@ soort corpus, je kunt zoeken, transformeren, visualiseren, etc.
 **-r**
 : replace xml in existing dact file
 
+**-s**
+: CoNLL-U: comments with message on error
+ 
+**-t**
+: CoNLL-U: no detokenize
+
 **-v** _name_**=**_value_
 : set global variable (can be used multiple times)
+
+**-w**
+: suppress warnings
+
+**-x**
+: CoNLL-U: dummy output on error
 
 **-1**
 : use XPath version 1 for searching in DACT files
@@ -58,9 +76,6 @@ soort corpus, je kunt zoeken, transformeren, visualiseren, etc.
 
 **-2s**
 : use XSLT2 (slow)
-
-**-w**
-: suppress warnings
 
 ## Acties
 
@@ -394,9 +409,10 @@ De volgende vlaggen kun je altijd gebruiken:
 : De metadata.
 
 **%u**
-: De Universal Dependencies. Wanneer de input al UD bevatten worden die
-  gebruikt, anders worden ze berekend. Het gebruik van alleen **tt:%u**
-  is sneller dan de combinatie **ds:ud tt:%u**.
+: De Universal Dependencies in het CoNLL-U-formaat. Wanneer de input al
+  UD bevatten worden die gebruikt, anders worden ze berekend. Het gebruik
+  van alleen **tt:%u** is sneller dan de combinatie **ds:ud tt:%u**. De
+  uitvoer kan aangepast worden met de volgende opties: **-c -d -s -t -x**
 
 De volgende vlaggen kun je gebruiken na zoeken met XPATH. Wanneer er
 meerdere machtes zijn in hetzelfde XML-bestand, dan worden de resultaten

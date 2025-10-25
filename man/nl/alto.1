@@ -1,4 +1,4 @@
-.TH ALTO 1 2025-10-02 v0.4.2 "toolkit for alpino dependency structures"
+.TH ALTO 1 2025-10-25 v0.4.3 "toolkit for alpino dependency structures"
 .SH NAAM
 alto \- \fBAL\fPpino \fBTO\fPolkit
 .SH SAMENVATTING
@@ -9,6 +9,12 @@ structures\fP, kortweg Alpino-bestanden. Je kunt losse bestanden
 samenvoegen tot een corpus, je kunt een corpus omzetten naar een ander
 soort corpus, je kunt zoeken, transformeren, visualiseren, etc.
 .SH OPTIES
+.TP
+\fB-c\fP
+CoNLL-U: no comments
+.TP
+\fB-d\fP
+CoNLL-U: no metadata
 .TP
 \fB-e\fP \fIexpression\fP
 show macro-expansion, and exit
@@ -32,8 +38,20 @@ output
 \fB-r\fP
 replace xml in existing dact file
 .TP
+\fB-s\fP
+CoNLL-U: comments with message on error
+.TP
+\fB-t\fP
+CoNLL-U: no detokenize
+.TP
 \fB-v\fP \fIname\fP\fB=\fP\fIvalue\fP
 set global variable (can be used multiple times)
+.TP
+\fB-w\fP
+suppress warnings
+.TP
+\fB-x\fP
+CoNLL-U: dummy output on error
 .TP
 \fB-1\fP
 use XPath version 1 for searching in DACT files
@@ -46,9 +64,6 @@ use XPath2 (slow)
 .TP
 \fB-2s\fP
 use XSLT2 (slow)
-.TP
-\fB-w\fP
-suppress warnings
 .SH ACTIES
 .TP
 \fBds:ud\fP
@@ -392,9 +407,10 @@ Alle comments, gescheiden door \fB\\n\\t\fP.
 De metadata.
 .TP
 \fB%u\fP
-De Universal Dependencies. Wanneer de input al UD bevatten worden die
+De Universal Dependencies in het CoNLL-U-formaat. Wanneer de input al UD bevatten worden die
 gebruikt, anders worden ze berekend. Het gebruik van alleen \fBtt:%u\fP
-is sneller dan de combinatie \fBds:ud tt:%u\fP.
+is sneller dan de combinatie \fBds:ud tt:%u\fP. De uitvoer kan aangepast
+worden met de volgende opties: \fB-c -d -s -t -x\fP
 .PP
 De volgende vlaggen kun je gebruiken na zoeken met XPATH. Wanneer er
 meerdere machtes zijn in hetzelfde XML-bestand, dan worden de resultaten

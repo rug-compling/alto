@@ -196,37 +196,107 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 				}
 				if needUD {
 					if alpino.Conllu == nil {
-						if item.arch != "" {
-							data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+						data.UD = ""
+						opts := 0
+						if !conlluComments {
+							opts = alud.OPT_NO_COMMENTS
 						}
-						ud, err := alud.Ud([]byte(item.data), item.oriname, alpino.Sentence.SentID, alud.OPT_DUMMY_OUTPUT)
-						if err == nil {
-							data.UD += ud
-						} else {
-							e := err.Error()
-							i := strings.Index(e, "\n")
-							if i > 0 {
-								e = e[:i]
+						if (conlluShortErr && conlluComments) || conlluDummy {
+							opts |= alud.OPT_DUMMY_OUTPUT
+						}
+						if conlluOmitDetok {
+							opts |= alud.OPT_NO_DETOKENIZE
+						}
+						if conlluOmitMeta {
+							opts |= alud.OPT_NO_METADATA
+						}
+						ud, err := alud.Ud([]byte(item.data), item.oriname, alpino.Sentence.SentID, opts)
+						if err == nil { // OK
+							if item.arch != "" && conlluComments {
+								data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
 							}
-							data.UD += fmt.Sprintf("# source = %s\n# error = %s\n\n", item.oriname, e)
+							data.UD += ud
+						} else if ud == "" { // fout zonder uitvoer
+							if conlluComments && (conlluShortErr || conlluDummy) {
+								if item.arch != "" && conlluComments {
+									data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+									e := err.Error()
+									i := strings.Index(e, "\n")
+									if i > 0 {
+										e = e[:i]
+									}
+									data.UD += fmt.Sprintf(`# source = %s
+# error = %s
+
+`, item.oriname, e)
+								}
+							}
+						} else { // fout met uitvoer
+							if item.arch != "" && conlluComments {
+								data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+							}
+							if conlluDummy {
+								data.UD += ud
+							} else {
+								for _, line := range strings.SplitAfter(ud, "\n") {
+									if len(line) > 0 && line[0] == '#' {
+										data.UD += line
+									}
+								}
+								data.UD += "\n"
+							}
 						}
 					} else if alpino.Conllu.Error != "" {
-						if item.arch != "" {
-							data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
-						}
-						data.UD += fmt.Sprintf("# source = %s\n# error = %s\n\n", item.oriname, alpino.Conllu.Error)
-					} else {
-						data.UD = strings.TrimLeft(alpino.Conllu.Conllu, " \t\r\n")
-						if item.arch != "" {
-							if strings.Contains(data.UD, "# source =") && !strings.Contains(data.UD, "# archive") {
-								data.UD = fmt.Sprintf("# archive = %s\n%s", item.arch, data.UD)
+						if conlluShortErr || conlluDummy {
+							data.UD = ""
+							if conlluComments {
+								if item.arch != "" {
+									data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+								}
+								data.UD += fmt.Sprintf(`# source = %v
+# sent_id = %v
+# text = %v
+%s# auto = %v
+# error = %v
+`, item.oriname, sentID(alpino.Sentence.SentID), alpino.Sentence.Sentence, metaComments(alpino), alpino.Conllu.Auto, alpino.Conllu.Error)
+							}
+							if conlluDummy {
+								for i, word := range strings.Fields(alpino.Sentence.Sentence) {
+									data.UD += fmt.Sprintf("%d\t%s\tfout\tX\t_\t_\t0\troot\t0:root\tError=Yes\n", i+1, word)
+								}
+							}
+							if data.UD != "" {
+								data.UD += "\n"
 							}
 						}
-						if !strings.HasSuffix(data.UD, "\n") {
-							data.UD += "\n\n"
-						} else if !strings.HasSuffix(data.UD, "\n\n") {
-							data.UD += "\n"
+					} else {
+						lines := strings.Split(strings.TrimLeft(alpino.Conllu.Conllu, " \t\r\n"), "\n")
+						data.UD = ""
+						if conlluComments {
+							hasComments := false
+							for _, line := range lines {
+								if len(line) > 0 && line[0] == '#' {
+									data.UD += line + "\n"
+									hasComments = true
+								}
+							}
+							if !hasComments {
+								if item.arch != "" {
+									data.UD = fmt.Sprintf("# archive = %s\n", item.arch)
+								}
+								data.UD += fmt.Sprintf(`# source = %v
+# sent_id = %v
+# text = %v
+%s# auto = %v
+`, item.oriname, sentID(alpino.Sentence.SentID), alpino.Sentence.Sentence, metaComments(alpino), alpino.Conllu.Auto)
+							}
 						}
+						for _, line := range lines {
+							if len(line) > 0 && line[0] != '#' {
+								data.UD += line + "\n"
+							}
+						}
+						data.UD += "\n"
 					}
 				}
 			}
@@ -289,6 +359,21 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 
 	} // for item
 	close(chOut)
+}
+
+func metaComments(alpino alpinods.AlpinoDS) string {
+	if conlluOmitMeta || alpino.Metadata == nil {
+		return ""
+	}
+	lines := make([]string, 0, len(alpino.Metadata.Meta))
+	for _, meta := range alpino.Metadata.Meta {
+		lines = append(lines, fmt.Sprintf("# meta_%s = %s\n", meta.Name, meta.Value))
+	}
+	return strings.Join(lines, "")
+}
+
+func sentID(s string) string {
+	return strings.Replace(s, "/", "\\", -1) // het teken / is gereserveerd
 }
 
 func doTree(alpino *alpinods.AlpinoDS, node *alpinods.Node) string {

@@ -58,19 +58,24 @@ var (
 	cEMPTY      = C.CString("")
 	cFILENAME   = C.CString("filename")
 
-	verbose       = true
-	warnings      = true
-	overwrite     = false
-	macrofile     = ""
-	showExpansion = false
-	exprToExpand  = ""
-	replace       = false
-	markMatch     = false
-	readStdin     = false
-	version1      = false
-	version2xpath = false
-	version2xslt  = false
-	variables     = []*C.char{
+	verbose         = true
+	warnings        = true
+	overwrite       = false
+	macrofile       = ""
+	showExpansion   = false
+	exprToExpand    = ""
+	replace         = false
+	markMatch       = false
+	readStdin       = false
+	version1        = false
+	version2xpath   = false
+	version2xslt    = false
+	conlluComments  = true
+	conlluShortErr  = false
+	conlluDummy     = false
+	conlluOmitDetok = false
+	conlluOmitMeta  = false
+	variables       = []*C.char{
 		C.CString("filename"),
 		cEMPTY,
 		C.CString("corpusname"),
@@ -93,6 +98,8 @@ Usage: %s (option | action | filename) ...
 
 Options:
 
+    -c              : CoNLL-U: no comments
+    -d              : CoNLL-U: no metadata
     -e expression   : show macro-expansion, and exit
     -f              : overwrite existing files
     -i              : read input filenames from stdin
@@ -101,12 +108,15 @@ Options:
     -n              : mark matching node
     -o filename     : output
     -r              : replace xml in existing dact file
+    -s              : CoNLL-U: comments with message on error
+    -t              : CoNLL-U: no detokenize
     -v name=value   : set global variable (can be used multiple times)
+    -w              : suppress warnings
+    -x              : CoNLL-U: dummy output on error
     -1              : use XPath version 1 for searching in DACT files
     -2              : use XPath2 and XSLT2 (slow)
     -2p             : use XPath2 (slow)
     -2s             : use XSLT2 (slow)
-    -w              : suppress warnings
 
 Actions:
 
@@ -155,7 +165,7 @@ Template placeholders:
     %%p  match pts
     %%P  match postags
     %%d  metadata
-    %%u  universal dependencies
+    %%u  universal dependencies (CoNLL-U Format)
     \t  tab
     \n  newline
 
@@ -225,6 +235,10 @@ func main() {
 		arg := os.Args[i]
 		if strings.HasPrefix(arg, "-") {
 			switch arg {
+			case "-c":
+				conlluComments = false
+			case "-d":
+				conlluOmitMeta = true
 			case "-e":
 				i++
 				if i == len(os.Args) {
@@ -258,6 +272,10 @@ func main() {
 				outfile = os.Args[i]
 			case "-r":
 				replace = true
+			case "-s":
+				conlluShortErr = true
+			case "-t":
+				conlluOmitDetok = true
 			case "-v":
 				i++
 				if i == len(os.Args) {
@@ -271,6 +289,10 @@ func main() {
 				}
 				variables = append(variables, C.CString(a[0]), C.CString(a[1]))
 				xsltVariables = append(xsltVariables, xslt.Parameter(xslt.StringParameter{Name: a[0], Value: a[1]}))
+			case "-w":
+				warnings = false
+			case "-x":
+				conlluDummy = true
 			case "-1":
 				version1 = true
 			case "-2":
@@ -280,8 +302,6 @@ func main() {
 				version2xpath = true
 			case "-2x":
 				version2xslt = true
-			case "-w":
-				warnings = false
 			default:
 				fmt.Fprintln(os.Stderr, "Unknown option", arg)
 				return
@@ -992,7 +1012,7 @@ func writeTxt(chIn <-chan Item, outfile string) {
 	for item := range chIn {
 		_, err := fp.WriteString(item.data)
 		x(err)
-		if !strings.HasSuffix(item.data, "\n") {
+		if item.data != "" && !strings.HasSuffix(item.data, "\n") {
 			_, err := fp.WriteString("\n")
 			x(err)
 		}
@@ -1005,7 +1025,7 @@ func writeStdout(chIn <-chan Item) {
 	for item := range chIn {
 		_, err := os.Stdout.WriteString(item.data)
 		x(err)
-		if !strings.HasSuffix(item.data, "\n") {
+		if item.data != "" && !strings.HasSuffix(item.data, "\n") {
 			os.Stdout.WriteString("\n")
 		}
 	}
