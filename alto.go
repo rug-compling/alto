@@ -209,8 +209,7 @@ This is %s version %s, using:
 		version,
 		major, minor, patch,
 		alud.VersionID(),
-		"1.16") // TODO
-	// alud.DtdVersion())
+		alud.DtdVersion())
 }
 
 func w(err error, msg ...interface{}) error {
