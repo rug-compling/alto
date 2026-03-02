@@ -261,7 +261,11 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 `, item.oriname, sentID(alpino.Sentence.SentID), alpino.Sentence.Sentence, metaComments(alpino), alpino.Conllu.Auto, alpino.Conllu.Error)
 							}
 							if conlluDummy {
-								for i, word := range strings.Fields(alpino.Sentence.Sentence) {
+								sentence := strings.Fields(alpino.Sentence.Sentence)
+								if len(sentence) != alpino.Node.End {
+									sentence = restoreSentence(&alpino)
+								}
+								for i, word := range sentence {
 									data.UD += fmt.Sprintf("%d\t%s\tfout\tX\t_\t_\t0\troot\t0:root\tError=Yes\n", i+1, word)
 								}
 							}
@@ -467,6 +471,9 @@ func doWords(alpino *alpinods.AlpinoDS, node *alpinods.Node) (words, lemmas, pts
 	last := 0
 	inUse := false
 	swords := strings.Fields(alpino.Sentence.Sentence)
+	if len(swords) != nwords {
+		swords = restoreSentence(alpino)
+	}
 	for i, w := range swords {
 		if use[i] {
 			if i < first {

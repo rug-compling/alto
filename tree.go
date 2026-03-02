@@ -184,7 +184,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 				}
 				chOut <- Item{
 					name:  fmt.Sprintf("%s.%d.%s", trimXML(item.oriname), i+1, format),
-					data:  getTree(&subnode, alpino.Sentence.Sentence, cFormat, format == "dot"),
+					data:  getTree(&subnode, alpino.Sentence.Sentence, &alpino, cFormat, format == "dot"),
 					match: make([]string, 0),
 				}
 				/*
@@ -206,7 +206,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 			// de hele boom
 			chOut <- Item{
 				name:  fmt.Sprintf("%s.%s", trimXML(item.oriname), format),
-				data:  getTree(alpino.Node, alpino.Sentence.Sentence, cFormat, format == "dot"),
+				data:  getTree(alpino.Node, alpino.Sentence.Sentence, &alpino, cFormat, format == "dot"),
 				match: make([]string, 0),
 			}
 		}
@@ -214,7 +214,7 @@ func vizTree(chIn <-chan Item, chOut chan<- Item, subtree bool, format string) {
 	close(chOut)
 }
 
-func getTree(node *alpinods.Node, sentence string, cFormat *C.char, wantDot bool) string {
+func getTree(node *alpinods.Node, sentence string, alpino *alpinods.AlpinoDS, cFormat *C.char, wantDot bool) string {
 	ctx := &TreeContext{
 		//              marks:    make(map[string]bool), // node met vette rand en edges van en naar de node, inclusief coindex
 		refs:  make(map[string]bool),
@@ -222,6 +222,9 @@ func getTree(node *alpinods.Node, sentence string, cFormat *C.char, wantDot bool
 		// ud1:      make(map[string]bool),
 		// ud2:      make(map[string]bool),
 		SkipThis: make(map[int]bool),
+	}
+	if len(ctx.words) != alpino.Node.End {
+		ctx.words = restoreSentence(alpino)
 	}
 
 	ctx.graph.WriteString(`strict graph gr {

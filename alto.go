@@ -1514,3 +1514,20 @@ func xpathFormat(expr string) string {
 	}
 	return strings.TrimRight(b.String(), "\n ")
 }
+
+func restoreSentence(alpino *alpinods.AlpinoDS) []string {
+	words := make([]string, alpino.Node.End)
+	var f func(*alpinods.Node)
+	f = func(node *alpinods.Node) {
+		if node.Word != "" {
+			words[node.Begin] = node.Word
+		}
+		if node.Node != nil {
+			for _, n := range node.Node {
+				f(n)
+			}
+		}
+	}
+	f(alpino.Node)
+	return words
+}
