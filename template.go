@@ -312,7 +312,7 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 			if multi {
 				var node alpinods.Node
 				ok := false
-				if needAlpino {
+				if needID || needWords || needMarked || needTree {
 					if w(xml.Unmarshal([]byte(item.match[i]), &node)) == nil {
 						ok = true
 					}
