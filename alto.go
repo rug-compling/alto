@@ -17,11 +17,12 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
-	//"runtime"
 	"strings"
 	"unsafe"
 
@@ -212,9 +213,29 @@ This is %s version %s, using:
 		alud.DtdVersion())
 }
 
+func makeErr(err error, prefix string, msg ...interface{}) string {
+	var b bytes.Buffer
+	_, filename, lineno, ok := runtime.Caller(2)
+	if ok {
+		fmt.Fprintf(&b, "%v:%v: %s -- %v", filename, lineno, prefix, err)
+	} else {
+		fmt.Fprintf(&b, "%s -- %v", prefix, err.Error())
+	}
+	if len(msg) > 0 {
+		b.WriteString(",")
+		for _, m := range msg {
+			fmt.Fprintf(&b, " %v", m)
+		}
+	}
+	return b.String()
+}
+
 func w(err error, msg ...interface{}) error {
-	if warnings {
-		return util.WarnErr(err, msg...)
+	if warnings && err != nil {
+		f := log.Flags()
+		log.SetFlags(0)
+		log.Println(makeErr(err, "warning", msg...))
+		log.SetFlags(f)
 	}
 	return err
 }
