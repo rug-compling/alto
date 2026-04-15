@@ -1106,7 +1106,7 @@ func readCompact(chOut chan<- Item, infile string, i, n int, xmlfiles []string) 
 		return
 	}
 
-	corpus, err := compactcorpus.Open(infile)
+	corpus, err := compactcorpus.Open(infile) // there is no Close()
 	x(err)
 	r, err := corpus.NewRange()
 	x(err)
@@ -1242,6 +1242,7 @@ func readDact(chOut chan<- Item, infile string, i, n int, filter string, xmlfile
 func readZip(chOut chan<- Item, infile string, i, n int, xmlfiles []string) {
 	zr, err := zip.OpenReader(infile)
 	x(err)
+	defer zr.Close()
 
 	if xmlfiles != nil {
 		for _, xmlfile := range xmlfiles {
@@ -1275,6 +1276,7 @@ func readZip(chOut chan<- Item, infile string, i, n int, xmlfiles []string) {
 		x(err)
 		data, err := io.ReadAll(f)
 		x(err)
+		f.Close()
 		chOut <- Item{
 			arch:    infile,
 			name:    name,
