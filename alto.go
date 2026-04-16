@@ -108,6 +108,7 @@ Options:
                       (or use environment variable ALTO_MACROFILE)
     -n              : mark matching node
     -o filename     : output
+    -q              : quiet
     -r              : replace xml in existing dact file
     -s              : CoNLL-U: comments with message on error
     -t              : CoNLL-U: no detokenize
@@ -290,6 +291,8 @@ func main() {
 					return
 				}
 				outfile = os.Args[i]
+			case "-q":
+				verbose = false
 			case "-r":
 				replace = true
 			case "-s":

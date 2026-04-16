@@ -1,6 +1,6 @@
 # alto(1)
 
-v0.4.9, 2026-03-02
+v0.5.0, 2026-04-16
 
 
 ## Naam
@@ -46,6 +46,9 @@ soort corpus, je kunt zoeken, transformeren, visualiseren, etc.
 
 **-o** _filename_
 : output
+
+**-q**
+: quiet
 
 **-r**
 : replace xml in existing dact file
