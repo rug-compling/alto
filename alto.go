@@ -149,27 +149,28 @@ Actions:
 
 Template placeholders:
 
-    %%%%  %%
-    %%c  corpusname
-    %%f  filename
-    %%F  if corpusname then corpusname::filename else filename
-    %%b  file body
-    %%i  id of matching node
-    %%j  ids of all matching nodes
-    %%I  sentence id
-    %%s  sentence
-    %%S  colored sentence
-    %%o  comments
-    %%m  match
-    %%M  match as tree
-    %%w  match words
-    %%l  match lemmas
-    %%p  match pts
-    %%P  match postags
-    %%d  metadata
-    %%u  universal dependencies (CoNLL-U Format)
-    \t  tab
-    \n  newline
+    %%%%       %%
+    %%c       corpusname
+    %%f       filename
+    %%F       if corpusname then corpusname::filename else filename
+    %%b       file body
+    %%i       id of matching node
+    %%j       ids of all matching nodes
+    %%I       sentence id
+    %%s       sentence
+    %%S       colored sentence
+    %%o       comments
+    %%m       match
+    %%M       match as tree
+    %%w       match words
+    %%l       match lemmas
+    %%p       match pts
+    %%P       match postags
+    %%d       all metadata
+    %%[name]d metadata, field 'name'
+    %%u       universal dependencies (CoNLL-U Format)
+    \t       tab
+    \n       newline
 
 Input filenames can be given as arguments, or/and
 one name per line on stdin, using option -i

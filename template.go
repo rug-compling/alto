@@ -30,11 +30,12 @@ type Fields struct {
 	Pts            string
 	Postags        string
 	Metadata       string
+	Meta           map[string]string
 	UD             string
 }
 
 var (
-	re   = regexp.MustCompile(`%[- +.#0-9]*[a-zA-Z%]`)
+	re   = regexp.MustCompile(`%[- +.#0-9]*(\[.*?\])?[a-zA-Z%]`)
 	reBS = regexp.MustCompile(`\\.`)
 )
 
@@ -57,11 +58,12 @@ var (
   %p  *match, pts only
   %P  *match, postags only
   %d  metadata
+  %[name]d medata name
   %u  UD
 */
 
 func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
-	var needAlpino, needMeta, multi, needID, needIDs, needMatch, needMarked, needWords, needTree, needUD bool
+	var needAlpino, needMeta, needMeta1, multi, needID, needIDs, needMatch, needMarked, needWords, needTree, needUD bool
 	format := reBS.ReplaceAllStringFunc(tmpl, func(s string) string {
 		if s == `\n` {
 			return "\n"
@@ -143,6 +145,10 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 			return "{{.Postags" + toS
 		case 'd':
 			needAlpino = true
+			if i, j := strings.Index(s, "["), strings.Index(s, "]"); i > 0 && j > i {
+				needMeta1 = true
+				return fmt.Sprintf(`{{index .Meta %q | printf "%ss"}}`, s[i+1:j], s[:i])
+			}
 			needMeta = true
 			return "{{.Metadata}}"
 		case 'u':
@@ -170,6 +176,9 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 		var out bytes.Buffer
 
 		var data Fields
+		if needMeta1 {
+			data.Meta = make(map[string]string)
+		}
 
 		data.Corpusname = item.arch
 		data.Filename = item.oriname
@@ -193,6 +202,11 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 						metas[i] = fmt.Sprintf("%s: %q", meta.Name, meta.Value)
 					}
 					data.Metadata = strings.Join(metas, ", ")
+				}
+				if needMeta1 && alpino.Metadata != nil && alpino.Metadata.Meta != nil {
+					for _, meta := range alpino.Metadata.Meta {
+						data.Meta[meta.Name] = meta.Value
+					}
 				}
 				if needUD {
 					if alpino.Conllu == nil {

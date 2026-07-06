@@ -1,6 +1,6 @@
 # alto(1)
 
-v0.5.0, 2026-04-16
+v0.6.0, 2026-07-06
 
 
 ## Naam
@@ -409,7 +409,10 @@ De volgende vlaggen kun je altijd gebruiken:
 : Alle comments, gescheiden door **\\n\\t**.
 
 **%d**
-: De metadata.
+: Alle metadata.
+
+**%[**_naam_**]d**
+: Metadata, veld _naam_.
 
 **%u**
 : De Universal Dependencies in het CoNLL-U-formaat. Wanneer de input al
@@ -453,7 +456,7 @@ moet zijn. Met een minus ervoor wordt de tekst links uitgelijnd, zonder
 minus rechts. Een voorbeeld:
 
 ```
-    tt:'%-14f %8I'
+    tt:'%-14f %8[naam]d'
 ```
 
 

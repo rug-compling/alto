@@ -1,4 +1,4 @@
-.TH ALTO 1 2026-04-16 v0.5.0 "toolkit for alpino dependency structures"
+.TH ALTO 1 2026-07-06 v0.6.0 "toolkit for alpino dependency structures"
 .SH NAAM
 alto \- \fBAL\fPpino \fBTO\fPolkit
 .SH SAMENVATTING
@@ -407,7 +407,10 @@ De zin.
 Alle comments, gescheiden door \fB\\n\\t\fP.
 .TP
 \fB%d\fP
-De metadata.
+Alle metadata.
+.TP
+\fB%[\fP\fInaam\fP\fB]d\fP
+Metadata, veld \fInaam\fP.
 .TP
 \fB%u\fP
 De Universal Dependencies in het CoNLL-U-formaat. Wanneer de input al UD bevatten worden die
@@ -452,7 +455,7 @@ minus rechts. Een voorbeeld:
 
 .nf
 .RS
-\fBtt:'%-14f %8I'\fP
+\fBtt:'%-14f %8[naam]d'\fP
 .RE
 .fi
 .SS Aggregeren
