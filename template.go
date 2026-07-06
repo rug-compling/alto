@@ -205,7 +205,11 @@ func transformTemplate(chIn <-chan Item, chOut chan<- Item, tmpl string) {
 				}
 				if needMeta1 && alpino.Metadata != nil && alpino.Metadata.Meta != nil {
 					for _, meta := range alpino.Metadata.Meta {
-						data.Meta[meta.Name] = meta.Value
+						if m, ok := data.Meta[meta.Name]; ok {
+							data.Meta[meta.Name] = m + ", " + meta.Value
+						} else {
+							data.Meta[meta.Name] = meta.Value
+						}
 					}
 				}
 				if needUD {
